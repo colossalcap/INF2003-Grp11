@@ -1,4 +1,4 @@
-# BookHive — Entity-Relationship Diagram (ERD)
+# Entity-Relationship Diagram — E-Commerce Analytics
 ## INF2003 Group 11
 
 ---
@@ -6,119 +6,128 @@
 ## Conceptual ER Diagram
 
 ```
-┌──────────────────────┐       ┌──────────────────────┐
-│       authors        │       │     categories       │
-├──────────────────────┤       ├──────────────────────┤
-│ PK  author_id   INT  │       │ PK  category_id INT  │
-│     name        VARCHAR│      │     name       VARCHAR│
-│     biography   TEXT  │       │     description TEXT  │
-│     birth_date  DATE  │       │ FK  parent_category_│
-│     nationality VARCHAR│      │     id          INT  │
-│     created_at  DATETIME│     │                      │
-└──────────┬───────────┘       └──────────┬───────────┘
-           │ M:M                          │ M:M
-           │                              │
-┌──────────▼──────────────────────────────▼───────────┐
-│                book_authors / book_categories        │
-│  (Junction Tables — resolving M:M relationships)     │
-├─────────────────────────────────────────────────────┤
-│  PK,FK  book_id      INT                             │
-│  PK,FK  author_id    INT   (or category_id)          │
-└──────────────────────┬──────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────┐
-│                     books                            │
-├─────────────────────────────────────────────────────┤
-│ PK  book_id          INT                            │
-│     isbn             VARCHAR(13)  UNIQUE            │
-│     title            VARCHAR(255)                   │
-│     publisher        VARCHAR(100)                   │
-│     publication_year INTEGER                        │
-│     page_count       INTEGER                        │
-│     language         VARCHAR(30)                    │
-│     description      TEXT                            │
-│     cover_url        VARCHAR(255)                   │
-│     average_rating   DECIMAL(3,2)  ← TRIGGER        │
-│     rating_count     INTEGER       ← TRIGGER        │
-│     created_at       DATETIME                        │
-└──────────────────────┬──────────────────────────────┘
-                       │ 1:M
-                       │
-┌──────────────────────▼──────────────────────────────┐
-│                    reviews                           │
-├─────────────────────────────────────────────────────┤
-│ PK  review_id        INT                            │
-│ FK  user_id          INT  NOT NULL                  │
-│ FK  book_id          INT  NOT NULL                  │
-│     rating           INT  CHECK (1-5)               │
-│     title            VARCHAR(200)                   │
-│     body             TEXT                            │
-│     spoiler_alert    BOOLEAN                        │
-│     helpful_count    INTEGER                        │
-│     created_at       DATETIME                        │
-│     updated_at       DATETIME  ← TRIGGER            │
-│ UNIQUE (user_id, book_id)                            │
-└─────────────────────────────────────────────────────┘
-                       │ M:1
-                       │
-┌──────────────────────▼──────────────────────────────┐
-│                     users                            │
-├─────────────────────────────────────────────────────┤
-│ PK  user_id          INT                            │
-│     username         VARCHAR(50)  UNIQUE            │
-│     email            VARCHAR(100) UNIQUE            │
-│     password_hash    VARCHAR(255)                   │
-│     display_name     VARCHAR(100)                   │
-│     bio              TEXT                            │
-│     avatar_url       VARCHAR(255)                   │
-│     role             VARCHAR(20)  DEFAULT 'reader'  │
-│     created_at       DATETIME                        │
-│     last_login       DATETIME                        │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────┐       ┌──────────────────────────┐
+│         users            │       │        customers         │
+├──────────────────────────┤       ├──────────────────────────┤
+│ PK  user_id       INT    │       │ PK  customer_id   UUID   │
+│     username      VARCHAR│       │     registration_date    │
+│     email         VARCHAR│       │       TIMESTAMP          │
+│     password_hash VARCHAR│       │     country_code  CHAR(3)│
+│     display_name  VARCHAR│       │     opt_in_status BOOLEAN│
+│     role          VARCHAR│       │                          │
+│     created_at    TIMESTMP│      └───────────┬──────────────┘
+└──────────────────────────┘                   │ 1:M
+                                               │
+┌──────────────────────────┐                   │
+│         orders           │◄──────────────────┘
+├──────────────────────────┤
+│ PK  order_id      UUID   │
+│ FK  customer_id   UUID   │──────┐ 1:M
+│     order_date    TIMESTMP│     │
+│     total_amount  DECIMAL │     │
+│     status        VARCHAR │     │
+└──────────────────────────┘     │
+                                 │
+┌──────────────────────────┐     │
+│       order_items        │◄────┘
+├──────────────────────────┤
+│ PK  item_id       SERIAL │
+│ FK  order_id      UUID   │
+│ FK  product_id    VARCHAR│──────┐ M:1
+│     quantity      INTEGER│     │
+│ CHECK (quantity > 0)     │     │
+└──────────────────────────┘     │
+                                 │
+┌──────────────────────────┐     │
+│        products          │◄────┘
+├──────────────────────────┤
+│ PK  product_id    VARCHAR│
+│     category      VARCHAR│
+│     unit_price    DECIMAL │
+│     stock_quantity INTEGER│
+│ CHECK (stock >= 0)       │
+└──────────────────────────┘
+
+
+┌──────────────────────────┐     ┌──────────────────────────┐
+│         outbox           │     │     order_audit_log      │
+│   (CDC / Event Store)    │     │   (Trigger-populated)    │
+├──────────────────────────┤     ├──────────────────────────┤
+│ PK  event_id      SERIAL │     │ PK  audit_id      SERIAL │
+│     aggregate_id  VARCHAR│     │     order_id       UUID  │
+│     event_type    VARCHAR│     │     changed_by    VARCHAR│
+│     payload       JSONB  │     │     field_name    VARCHAR│
+│     created_at    TIMESTMP│    │     old_value      TEXT  │
+│     processed     BOOLEAN│     │     new_value      TEXT  │
+└──────────────────────────┘     │     changed_at    TIMESTMP│
+                                 └──────────────────────────┘
+
+
+┌──────────────────────────┐
+│         alerts           │
+│   (Fraud Detection)      │
+├──────────────────────────┤
+│ PK  alert_id      SERIAL │
+│     customer_id   UUID   │
+│     message        TEXT  │
+│     alert_type    VARCHAR│
+│     created_at    TIMESTMP│
+│     acknowledged  BOOLEAN│
+└──────────────────────────┘
 ```
 
 ---
 
 ## Relationship Types Demonstrated
 
-| Relationship | Type | Tables Involved | Implementation |
-|-------------|------|----------------|----------------|
-| User → Review | **1:M** | users → reviews | FK `user_id` in reviews |
-| Book → Review | **1:M** | books → reviews | FK `book_id` in reviews |
-| Book ↔ Author | **M:M** | books ↔ authors | Junction table `book_authors` |
-| Book ↔ Category | **M:M** | books ↔ categories | Junction table `book_categories` |
-| Category → Category | **1:M (self-referencing)** | categories → categories | FK `parent_category_id` |
+| Relationship | Type | Tables | Implementation |
+|-------------|------|--------|----------------|
+| Customer → Order | **1:M** | customers → orders | FK `customer_id` in orders |
+| Order → OrderItem | **1:M** | orders → order_items | FK `order_id` in order_items |
+| Product → OrderItem | **1:M** | products → order_items | FK `product_id` in order_items |
 
 ---
 
-## Key Design Decisions
+## NoSQL Document Store (MongoDB)
 
-1. **Why junction tables for M:M?** Books can have multiple authors (anthologies) and multiple categories (cross-genre). Junction tables are the only normalized way to represent this in a relational model.
+```
+┌──────────────────────────────────────┐
+│          user_sessions               │
+│        (Bucket Pattern)              │
+├──────────────────────────────────────┤
+│ _id:          ObjectId               │
+│ customer_id:  String                 │
+│ session_id:   String                 │
+│ start_time:   ISODate                │
+│ end_time:     ISODate                │
+│ event_count:  Integer  ← $inc        │
+│ flagged:      Boolean                │
+│ events: [                            │
+│   { action_type, product_id, ts }    │
+│ ]                     ← $push        │
+└──────────────────────────────────────┘
 
-2. **Why `average_rating` is stored (denormalized)?** It's updated via triggers on the `reviews` table. This avoids computing AVG() on every page load. It's a classic read-optimization trade-off.
-
-3. **Why `parent_category_id` is self-referencing?** Enables hierarchical categories (e.g., Fiction → Fantasy → Epic Fantasy). This demonstrates recursive/hierarchical data modeling.
-
-4. **Why UNIQUE(user_id, book_id) on reviews?** Prevents a user from reviewing the same book twice.
-
-5. **Referential Integrity:** All FKs use `ON DELETE CASCADE` so that deleting a user or book cleans up related records automatically.
+┌──────────────────────────────────────┐
+│       customer_order_summary         │
+│         (CDC Target)                 │
+├──────────────────────────────────────┤
+│ customer_id:  String    (unique)     │
+│ total_orders: Integer  ← $inc        │
+│ total_spent:  Float    ← $inc        │
+│ last_order_date: ISODate             │
+│ last_updated: ISODate                │
+└──────────────────────────────────────┘
+```
 
 ---
 
-## Cardinality Summary
+## Trigger Summary
 
-```
-users ──────< reviews >────── books
- 1                  M        1                  M
- │                           │
- │                           ├──────< book_authors >────── authors
- │                           │        M              M
- │                           │
- │                           └──────< book_categories >── categories
- │                                    M                  M
- │                                                       │
- │                              parent_category_id ──────┘
- │                              (self-referencing 1:M)
-```
+| Trigger | Fires On | Purpose |
+|---------|----------|---------|
+| `trg_check_stock` | BEFORE INSERT on order_items | Validates sufficient stock exists |
+| `trg_deduct_inventory` | AFTER INSERT on order_items | Decrements `products.stock_quantity` |
+| `trg_outbox_order` | AFTER INSERT on orders | Writes CDC event to `outbox` table |
+| `trg_audit_order` | AFTER UPDATE on orders | Logs status/total changes to `order_audit_log` |
 
-**Total: 5 entity tables + 2 junction tables = 7 tables**
+**Total: 7 relational tables + 4 MongoDB collections**

@@ -1,19 +1,43 @@
-# BookHive Backend Dependencies
-# INF2003 Group 11
+# FastAPI Backend Dependencies
+# INF2003 Group 11 — E-Commerce Analytics
 
 # Web Framework
-Flask==3.0.0
-Flask-SQLAlchemy==3.1.1
-Flask-Bcrypt==1.0.1
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
 
-# Database Drivers
+# Relational Database (PostgreSQL)
+sqlalchemy==2.0.25
+psycopg2-binary==2.9.9
+alembic==1.13.1
+
+# NoSQL Database (MongoDB)
+motor==3.3.2    # Async MongoDB driver
 pymongo==4.6.1
-# mysqlclient==2.2.0  # Uncomment for MySQL production
 
-# Utilities
+# Authentication
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+
+# Data Processing
+pandas==2.2.0
+numpy==1.26.3
+
+# Validation
+pydantic[email]==2.6.0
+
+# Task Scheduling
+apscheduler==3.10.4
+
+# HTTP Client (for benchmark)
+httpx==0.26.0
+
+# Benchmarking & Plotting
+matplotlib==3.8.2
+psutil==5.9.8
+
+# Environment
 python-dotenv==1.0.0
-Werkzeug==3.0.1
-Jinja2==3.1.2
 
-# Development
-# pytest==7.4.0  # Uncomment for testing
+# CORS
+fastapi-cors==0.0.6

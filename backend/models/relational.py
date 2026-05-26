@@ -1,136 +1,167 @@
-# ============================================================
-# BookHive — SQLAlchemy Relational Models
-# INF2003 Group 11
-# ============================================================
+"""
+============================================================
+INF2003 Group 11 — SQLAlchemy ORM Models (PostgreSQL)
+Tables: customers, products, orders, order_items, outbox,
+        alerts, order_audit_log, users
+============================================================
+"""
 
-from flask_sqlalchemy import SQLAlchemy
+import uuid
 from datetime import datetime
 
-db = SQLAlchemy()
-
-# ------------------------------------------------------------
-# Junction Tables (M:M relationships)
-# ------------------------------------------------------------
-book_authors = db.Table(
-    'book_authors',
-    db.Column('book_id', db.Integer, db.ForeignKey('books.book_id', ondelete='CASCADE'), primary_key=True),
-    db.Column('author_id', db.Integer, db.ForeignKey('authors.author_id', ondelete='CASCADE'), primary_key=True)
+from sqlalchemy import (
+    Column, Integer, String, Float, Boolean, DateTime, Text,
+    ForeignKey, CheckConstraint,
+    create_engine,
 )
+from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 
-book_categories = db.Table(
-    'book_categories',
-    db.Column('book_id', db.Integer, db.ForeignKey('books.book_id', ondelete='CASCADE'), primary_key=True),
-    db.Column('category_id', db.Integer, db.ForeignKey('categories.category_id', ondelete='CASCADE'), primary_key=True)
-)
+from config import settings
+
+Base = declarative_base()
+
+# Engine and session factory
+engine = create_engine(settings.DATABASE_URL, echo=settings.DEBUG)
+SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+
 
 # ------------------------------------------------------------
-# User Model
+# Users (for JWT authentication)
 # ------------------------------------------------------------
-class User(db.Model):
-    __tablename__ = 'users'
+class User(Base):
+    __tablename__ = "users"
 
-    user_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    username = db.Column(db.String(50), unique=True, nullable=False)
-    email = db.Column(db.String(100), unique=True, nullable=False)
-    password_hash = db.Column(db.String(255), nullable=False)
-    display_name = db.Column(db.String(100))
-    bio = db.Column(db.Text)
-    avatar_url = db.Column(db.String(255))
-    role = db.Column(db.String(20), default='reader')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    last_login = db.Column(db.DateTime)
+    user_id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String(50), unique=True, nullable=False, index=True)
+    email = Column(String(100), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    display_name = Column(String(100))
+    role = Column(String(20), default="customer")  # customer, admin
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# ------------------------------------------------------------
+# Customers
+# ------------------------------------------------------------
+class Customer(Base):
+    __tablename__ = "customers"
+
+    customer_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    registration_date = Column(DateTime, default=datetime.utcnow)
+    country_code = Column(String(3))
+    opt_in_status = Column(Boolean, default=True)
 
     # Relationships
-    reviews = db.relationship('Review', backref='user', lazy='dynamic', cascade='all, delete-orphan')
+    orders = relationship("Order", back_populates="customer", cascade="all, delete-orphan")
 
-    def __repr__(self):
-        return f'<User {self.username}>'
 
 # ------------------------------------------------------------
-# Author Model
+# Products
 # ------------------------------------------------------------
-class Author(db.Model):
-    __tablename__ = 'authors'
+class Product(Base):
+    __tablename__ = "products"
 
-    author_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    name = db.Column(db.String(100), nullable=False)
-    biography = db.Column(db.Text)
-    birth_date = db.Column(db.Date)
-    nationality = db.Column(db.String(50))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    product_id = Column(String(50), primary_key=True)
+    category = Column(String(100), nullable=False, index=True)
+    unit_price = Column(Float, nullable=False)
+    stock_quantity = Column(Integer, nullable=False)
 
-    # Relationships
-    books = db.relationship('Book', secondary=book_authors, backref=db.backref('authors', lazy='dynamic'))
-
-    def __repr__(self):
-        return f'<Author {self.name}>'
-
-# ------------------------------------------------------------
-# Category Model
-# ------------------------------------------------------------
-class Category(db.Model):
-    __tablename__ = 'categories'
-
-    category_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    name = db.Column(db.String(50), unique=True, nullable=False)
-    description = db.Column(db.Text)
-    parent_category_id = db.Column(db.Integer, db.ForeignKey('categories.category_id', ondelete='SET NULL'))
-
-    # Self-referencing relationship (hierarchical categories)
-    parent = db.relationship('Category', remote_side=[category_id], backref='subcategories')
-
-    # Relationships
-    books = db.relationship('Book', secondary=book_categories, backref=db.backref('categories', lazy='dynamic'))
-
-    def __repr__(self):
-        return f'<Category {self.name}>'
-
-# ------------------------------------------------------------
-# Book Model
-# ------------------------------------------------------------
-class Book(db.Model):
-    __tablename__ = 'books'
-
-    book_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    isbn = db.Column(db.String(13), unique=True)
-    title = db.Column(db.String(255), nullable=False)
-    publisher = db.Column(db.String(100))
-    publication_year = db.Column(db.Integer)
-    page_count = db.Column(db.Integer)
-    language = db.Column(db.String(30), default='English')
-    description = db.Column(db.Text)
-    cover_url = db.Column(db.String(255))
-    average_rating = db.Column(db.Float, default=0.0)
-    rating_count = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    # Relationships
-    reviews = db.relationship('Review', backref='book', lazy='dynamic', cascade='all, delete-orphan')
-
-    def __repr__(self):
-        return f'<Book {self.title}>'
-
-# ------------------------------------------------------------
-# Review Model
-# ------------------------------------------------------------
-class Review(db.Model):
-    __tablename__ = 'reviews'
-
-    review_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.user_id', ondelete='CASCADE'), nullable=False)
-    book_id = db.Column(db.Integer, db.ForeignKey('books.book_id', ondelete='CASCADE'), nullable=False)
-    rating = db.Column(db.Integer, nullable=False)
-    title = db.Column(db.String(200))
-    body = db.Column(db.Text)
-    spoiler_alert = db.Column(db.Boolean, default=False)
-    helpful_count = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # Ensure one review per user per book
     __table_args__ = (
-        db.UniqueConstraint('user_id', 'book_id', name='uq_user_book_review'),
+        CheckConstraint("stock_quantity >= 0", name="ck_stock_non_negative"),
     )
 
-    def __repr__(self):
-        return f'<Review {self.review_id} by User {self.user_id}>'
+    # Relationships
+    order_items = relationship("OrderItem", back_populates="product")
+
+
+# ------------------------------------------------------------
+# Orders
+# ------------------------------------------------------------
+class Order(Base):
+    __tablename__ = "orders"
+
+    order_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    customer_id = Column(UUID(as_uuid=True), ForeignKey("customers.customer_id"), nullable=False, index=True)
+    order_date = Column(DateTime, default=datetime.utcnow)
+    total_amount = Column(Float, default=0.0)
+    status = Column(String(20), default="pending")  # pending, confirmed, shipped, cancelled
+
+    # Relationships
+    customer = relationship("Customer", back_populates="orders")
+    items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+
+
+# ------------------------------------------------------------
+# Order Items
+# ------------------------------------------------------------
+class OrderItem(Base):
+    __tablename__ = "order_items"
+
+    item_id = Column(Integer, primary_key=True, autoincrement=True)
+    order_id = Column(UUID(as_uuid=True), ForeignKey("orders.order_id", ondelete="CASCADE"), nullable=False, index=True)
+    product_id = Column(String(50), ForeignKey("products.product_id"), nullable=False)
+    quantity = Column(Integer, nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("quantity > 0", name="ck_quantity_positive"),
+    )
+
+    # Relationships
+    order = relationship("Order", back_populates="items")
+    product = relationship("Product", back_populates="order_items")
+
+
+# ------------------------------------------------------------
+# Outbox Table (for Outbox Pattern / CDC)
+# ------------------------------------------------------------
+class Outbox(Base):
+    __tablename__ = "outbox"
+
+    event_id = Column(Integer, primary_key=True, autoincrement=True)
+    aggregate_id = Column(String(255), nullable=False)
+    event_type = Column(String(100), nullable=False, index=True)
+    payload = Column(JSONB, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    processed = Column(Boolean, default=False, index=True)
+
+
+# ------------------------------------------------------------
+# Alerts (Fraud Detection)
+# ------------------------------------------------------------
+class Alert(Base):
+    __tablename__ = "alerts"
+
+    alert_id = Column(Integer, primary_key=True, autoincrement=True)
+    customer_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    message = Column(Text, nullable=False)
+    alert_type = Column(String(50), default="fraud")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    acknowledged = Column(Boolean, default=False)
+
+
+# ------------------------------------------------------------
+# Order Audit Log (for Audit Trigger)
+# ------------------------------------------------------------
+class OrderAuditLog(Base):
+    __tablename__ = "order_audit_log"
+
+    audit_id = Column(Integer, primary_key=True, autoincrement=True)
+    order_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    changed_by = Column(String(50))
+    field_name = Column(String(100))
+    old_value = Column(Text)
+    new_value = Column(Text)
+    changed_at = Column(DateTime, default=datetime.utcnow)
+
+
+# ------------------------------------------------------------
+# Helper: Get DB Session
+# ------------------------------------------------------------
+def get_db():
+    """Yield a database session, ensuring it's closed after use."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
