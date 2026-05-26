@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Create Reading List — BookHive{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <h3><i class="bi bi-plus-lg"></i> Create New Reading List</h3>
+
+        <div class="card shadow mt-3">
+            <div class="card-body p-4">
+                <form method="POST" action="{{ url_for('reading_lists.create_list') }}">
+                    <div class="mb-3">
+                        <label for="list_name" class="form-label">List Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="list_name" name="list_name"
+                               required placeholder="e.g., Summer Reads, Sci-Fi Favorites...">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description"
+                                  rows="3" placeholder="What's this list about?"></textarea>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="is_public"
+                               name="is_public" checked>
+                        <label class="form-check-label" for="is_public">
+                            Make this list public (visible to other readers)
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-lg"></i> Create List
+                    </button>
+                    <a href="{{ url_for('reading_lists.my_lists') }}"
+                       class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

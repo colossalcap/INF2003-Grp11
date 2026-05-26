@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+{% block title %}{{ book.title }} — BookHive{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Book Details -->
+    <div class="col-md-8">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('books.list_books') }}">Books</a></li>
+                <li class="breadcrumb-item active">{{ book.title }}</li>
+            </ol>
+        </nav>
+
+        <h1>{{ book.title }}</h1>
+
+        <div class="mb-3">
+            {% set full_stars = book.average_rating|int %}
+            {% for i in range(5) %}
+                {% if i < full_stars %}
+                    <i class="bi bi-star-fill text-warning fs-5"></i>
+                {% else %}
+                    <i class="bi bi-star text-warning fs-5"></i>
+                {% endif %}
+            {% endfor %}
+            <span class="ms-2 fw-bold">{{ "%.2f"|format(book.average_rating) }}</span>
+            <small class="text-muted">({{ book.rating_count }} reviews)</small>
+        </div>
+
+        <table class="table table-borderless">
+            <tbody>
+                {% if book.authors %}
+                <tr>
+                    <th class="w-25">Author(s)</th>
+                    <td>
+                        {% for author in book.authors %}
+                            {{ author.name }}{% if not loop.last %}, {% endif %}
+                        {% endfor %}
+                    </td>
+                </tr>
+                {% endif %}
+                {% if book.isbn %}
+                <tr><th>ISBN</th><td>{{ book.isbn }}</td></tr>
+                {% endif %}
+                {% if book.publisher %}
+                <tr><th>Publisher</th><td>{{ book.publisher }}</td></tr>
+                {% endif %}
+                {% if book.publication_year %}
+                <tr><th>Published</th><td>{{ book.publication_year }}</td></tr>
+                {% endif %}
+                {% if book.page_count %}
+                <tr><th>Pages</th><td>{{ book.page_count }}</td></tr>
+                {% endif %}
+                <tr><th>Language</th><td>{{ book.language }}</td></tr>
+            </tbody>
+        </table>
+
+        {% if book.categories %}
+        <div class="mb-3">
+            {% for cat in book.categories %}
+            <a href="{{ url_for('books.list_books', category=cat.category_id) }}"
+               class="badge bg-secondary text-decoration-none me-1">{{ cat.name }}</a>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if book.description %}
+        <div class="card mb-4">
+            <div class="card-header">Description</div>
+            <div class="card-body">
+                <p class="card-text">{{ book.description }}</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- NoSQL Metadata (if available) -->
+        {% if metadata %}
+        <div class="card mb-4 border-info">
+            <div class="card-header bg-info text-white">
+                <i class="bi bi-database"></i> Book Metadata (NoSQL)
+            </div>
+            <div class="card-body">
+                {% if metadata.tags %}
+                <p><strong>Tags:</strong>
+                    {% for tag in metadata.tags %}
+                    <span class="badge bg-info me-1">{{ tag }}</span>
+                    {% endfor %}
+                </p>
+                {% endif %}
+
+                {% if metadata.awards %}
+                <p><strong>Awards:</strong></p>
+                <ul>
+                    {% for award in metadata.awards %}
+                    <li>{{ award.name }} ({{ award.year }})</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+
+                {% if metadata.editions %}
+                <p><strong>Editions:</strong> {{ metadata.editions|length }} edition(s)</p>
+                <ul>
+                    {% for ed in metadata.editions[:3] %}
+                    <li>{{ ed.format|title }} — {{ ed.publisher }} ({{ ed.year }}), {{ ed.pages }} pages</li>
+                    {% endfor %}
+                    {% if metadata.editions|length > 3 %}
+                    <li><em>...and {{ metadata.editions|length - 3 }} more</em></li>
+                    {% endif %}
+                </ul>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Reviews Section -->
+        <h3 class="mt-4">
+            <i class="bi bi-chat-square-text"></i> Reviews ({{ reviews|length }})
+        </h3>
+
+        {% if current_user and not user_review %}
+        <a href="{{ url_for('reviews.create_review', book_id=book.book_id) }}"
+           class="btn btn-primary mb-3">
+            <i class="bi bi-pencil"></i> Write a Review
+        </a>
+        {% endif %}
+
+        {% if sentiment_stats %}
+        <div class="mb-3">
+            <small class="text-muted">Sentiment Breakdown (NoSQL):</small>
+            {% for stat in sentiment_stats %}
+            <span class="badge bg-{{ 'success' if stat._id == 'positive' else 'warning' if stat._id == 'neutral' else 'danger' }} me-1">
+                {{ stat._id }}: {{ stat.count }}
+            </span>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% for review in reviews %}
+        <div class="card mb-3 {% if review.spoiler_alert %}border-warning{% endif %}">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <strong>{{ review.user.display_name or review.user.username }}</strong>
+                        <span class="text-warning ms-2">
+                            {% for i in range(review.rating) %}
+                            <i class="bi bi-star-fill small"></i>
+                            {% endfor %}
+                        </span>
+                        {% if review.spoiler_alert %}
+                        <span class="badge bg-warning text-dark ms-2">Spoiler Alert</span>
+                        {% endif %}
+                    </div>
+                    <small class="text-muted">{{ review.created_at.strftime('%b %d, %Y') }}</small>
+                </div>
+
+                {% if review.title %}
+                <h6 class="mt-2">{{ review.title }}</h6>
+                {% endif %}
+
+                <p class="card-text">{{ review.body }}</p>
+
+                <div class="d-flex justify-content-between align-items-center">
+                    <form method="POST" action="{{ url_for('reviews.mark_helpful', review_id=review.review_id) }}"
+                          class="d-inline">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-hand-thumbs-up"></i> Helpful ({{ review.helpful_count or 0 }})
+                        </button>
+                    </form>
+
+                    {% if current_user and (current_user.user_id == review.user_id or current_user.role == 'admin') %}
+                    <div>
+                        <a href="{{ url_for('reviews.edit_review', review_id=review.review_id) }}"
+                           class="btn btn-sm btn-outline-primary">Edit</a>
+                        <form method="POST" action="{{ url_for('reviews.delete_review', review_id=review.review_id) }}"
+                              class="d-inline"
+                              onsubmit="return confirm('Delete this review?');">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="alert alert-light">
+            <i class="bi bi-info-circle"></i> No reviews yet. Be the first to review!
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-md-4">
+        {% if current_user %}
+        <div class="card mb-3">
+            <div class="card-header">
+                <i class="bi bi-bookmark-plus"></i> Add to Reading List
+            </div>
+            <div class="card-body">
+                <form method="POST"
+                      action="{{ url_for('reading_lists.add_book', list_name='Want to Read', book_id=book.book_id) }}">
+                    <select name="list_name" class="form-select mb-2">
+                        <option value="Want to Read">Want to Read</option>
+                        <option value="Currently Reading">Currently Reading</option>
+                        <option value="Favorites">Favorites</option>
+                    </select>
+                    <input type="text" name="notes" class="form-control mb-2"
+                           placeholder="Personal notes (optional)">
+                    <button type="submit" class="btn btn-success btn-sm w-100">
+                        <i class="bi bi-plus"></i> Add to List
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Review Action -->
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-pencil"></i> Your Review
+            </div>
+            <div class="card-body">
+                {% if user_review %}
+                <p>You rated this book <strong>{{ user_review.rating }}/5</strong></p>
+                <a href="{{ url_for('reviews.edit_review', review_id=user_review.review_id) }}"
+                   class="btn btn-outline-primary btn-sm">Edit Your Review</a>
+                {% elif current_user %}
+                <a href="{{ url_for('reviews.create_review', book_id=book.book_id) }}"
+                   class="btn btn-primary btn-sm w-100">Write a Review</a>
+                {% else %}
+                <p class="text-muted small">
+                    <a href="{{ url_for('auth.login') }}">Log in</a> to write a review.
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

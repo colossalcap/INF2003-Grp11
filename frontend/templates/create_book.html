@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Add Book — BookHive{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <h2 class="mb-4"><i class="bi bi-plus-circle"></i> Add New Book</h2>
+
+        <div class="card shadow">
+            <div class="card-body p-4">
+                <form method="POST" action="{{ url_for('books.create_book') }}">
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label for="title" class="form-label">Title <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="title" name="title" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="isbn" class="form-label">ISBN</label>
+                            <input type="text" class="form-control" id="isbn" name="isbn"
+                                   placeholder="978-...">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="publisher" class="form-label">Publisher</label>
+                            <input type="text" class="form-control" id="publisher" name="publisher">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="publication_year" class="form-label">Year</label>
+                            <input type="number" class="form-control" id="publication_year"
+                                   name="publication_year" min="1000" max="2026">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="page_count" class="form-label">Pages</label>
+                            <input type="number" class="form-control" id="page_count"
+                                   name="page_count" min="1">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="language" class="form-label">Language</label>
+                        <input type="text" class="form-control" id="language"
+                               name="language" value="English">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description"
+                                  rows="4"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="cover_url" class="form-label">Cover Image URL</label>
+                        <input type="url" class="form-control" id="cover_url" name="cover_url">
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Authors</label>
+                            <div class="border rounded p-2" style="max-height: 150px; overflow-y: auto;">
+                                {% for author in authors %}
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox"
+                                           name="author_ids" value="{{ author.author_id }}"
+                                           id="author_{{ author.author_id }}">
+                                    <label class="form-check-label" for="author_{{ author.author_id }}">
+                                        {{ author.name }}
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Categories</label>
+                            <div class="border rounded p-2" style="max-height: 150px; overflow-y: auto;">
+                                {% for cat in categories %}
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox"
+                                           name="category_ids" value="{{ cat.category_id }}"
+                                           id="cat_{{ cat.category_id }}">
+                                    <label class="form-check-label" for="cat_{{ cat.category_id }}">
+                                        {{ cat.name }}
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> Add Book
+                    </button>
+                    <a href="{{ url_for('books.list_books') }}" class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

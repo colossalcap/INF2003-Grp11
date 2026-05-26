@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Write Review — {{ book.title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-7">
+        <h3><i class="bi bi-pencil"></i> Review: {{ book.title }}</h3>
+
+        <div class="card shadow mt-3">
+            <div class="card-body p-4">
+                <form method="POST" action="{{ url_for('reviews.create_review', book_id=book.book_id) }}">
+                    <!-- Star Rating -->
+                    <div class="mb-4 text-center">
+                        <label class="form-label d-block">Your Rating</label>
+                        <div class="star-rating">
+                            {% for i in range(5, 0, -1) %}
+                            <input type="radio" id="star{{ i }}" name="rating" value="{{ i }}" required>
+                            <label for="star{{ i }}" title="{{ i }} star{% if i > 1 %}s{% endif %}">
+                                <i class="bi bi-star-fill"></i>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="title" class="form-label">Review Title</label>
+                        <input type="text" class="form-control" id="title" name="title"
+                               placeholder="Summarize your review...">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="body" class="form-label">Your Review</label>
+                        <textarea class="form-control" id="body" name="body" rows="6"
+                                  placeholder="What did you think of this book?"></textarea>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="spoiler_alert"
+                               name="spoiler_alert">
+                        <label class="form-check-label" for="spoiler_alert">
+                            This review contains spoilers
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-send"></i> Submit Review
+                    </button>
+                    <a href="{{ url_for('books.book_detail', book_id=book.book_id) }}"
+                       class="btn btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Star rating hover effect
+document.querySelectorAll('.star-rating label').forEach(label => {
+    label.addEventListener('mouseenter', () => {
+        const value = label.previousElementSibling?.value;
+        // Highlight stars up to hovered
+    });
+});
+</script>
+{% endblock %}

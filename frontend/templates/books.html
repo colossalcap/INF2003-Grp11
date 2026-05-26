@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Browse Books — BookHive{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-collection"></i> Browse Books</h2>
+
+<div class="row">
+    <!-- Sidebar Filters -->
+    <div class="col-md-3">
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-funnel"></i> Filters
+            </div>
+            <div class="card-body">
+                <!-- Category Filter -->
+                <h6>Category</h6>
+                <div class="list-group list-group-flush mb-3">
+                    <a href="{{ url_for('books.list_books', search=search) }}"
+                       class="list-group-item list-group-item-action {% if not category_filter %}active{% endif %}">
+                        All Categories
+                    </a>
+                    {% for cat in categories %}
+                    <a href="{{ url_for('books.list_books', category=cat.category_id, search=search) }}"
+                       class="list-group-item list-group-item-action {% if category_filter == cat.category_id %}active{% endif %}">
+                        {{ cat.name }}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Book Grid -->
+    <div class="col-md-9">
+        {% if search %}
+        <div class="alert alert-info">
+            <i class="bi bi-search"></i> Results for: <strong>"{{ search }}"</strong>
+            <a href="{{ url_for('books.list_books') }}" class="float-end">Clear</a>
+        </div>
+        {% endif %}
+
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+            {% for book in books.items %}
+            <div class="col">
+                <div class="card h-100 book-card shadow-sm">
+                    <div class="card-body">
+                        <h6 class="card-title">
+                            <a href="{{ url_for('books.book_detail', book_id=book.book_id) }}"
+                               class="text-decoration-none">{{ book.title }}</a>
+                        </h6>
+                        <small class="text-muted">
+                            {% for author in book.authors[:2] %}
+                                {{ author.name }}{% if not loop.last %}, {% endif %}
+                            {% endfor %}
+                        </small>
+                        <div class="mt-2">
+                            <span class="badge bg-warning text-dark">
+                                <i class="bi bi-star-fill"></i>
+                                {{ "%.1f"|format(book.average_rating) }}
+                            </span>
+                            <small class="text-muted">({{ book.rating_count }})</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="col-12">
+                <p class="text-muted">No books found matching your criteria.</p>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if books.pages > 1 %}
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if books.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('books.list_books', page=books.prev_num, search=search, category=category_filter) }}">
+                        &laquo; Previous
+                    </a>
+                </li>
+                {% endif %}
+
+                {% for page_num in books.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                    {% if page_num %}
+                    <li class="page-item {% if page_num == books.page %}active{% endif %}">
+                        <a class="page-link" href="{{ url_for('books.list_books', page=page_num, search=search, category=category_filter) }}">
+                            {{ page_num }}
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">&hellip;</span></li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if books.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('books.list_books', page=books.next_num, search=search, category=category_filter) }}">
+                        Next &raquo;
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

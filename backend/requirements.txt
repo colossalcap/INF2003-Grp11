@@ -1,0 +1,19 @@
+# BookHive Backend Dependencies
+# INF2003 Group 11
+
+# Web Framework
+Flask==3.0.0
+Flask-SQLAlchemy==3.1.1
+Flask-Bcrypt==1.0.1
+
+# Database Drivers
+pymongo==4.6.1
+# mysqlclient==2.2.0  # Uncomment for MySQL production
+
+# Utilities
+python-dotenv==1.0.0
+Werkzeug==3.0.1
+Jinja2==3.1.2
+
+# Development
+# pytest==7.4.0  # Uncomment for testing
