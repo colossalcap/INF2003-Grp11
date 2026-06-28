@@ -152,6 +152,18 @@ def load_orders_postgres(batch_size: int = 500):
             db.flush()
             existing_customers[int_cid] = new_cust.customer_id
 
+            # Also create a User record so these customers can log in via JWT
+            existing_user = db.query(User).filter_by(username=f"user_{int_cid}").first()
+            if not existing_user:
+                user = User(
+                    username=f"user_{int_cid}",
+                    email=f"user{int_cid}@ecommerce.local",
+                    password_hash="$2b$12$LJ3m4ys3GZfnYMz8kVsKaOTSGLkyVlMJ3fSTurNWRfLmRblvOvVRO",  # 'password123'
+                    display_name=f"Customer {int_cid}",
+                    role="customer",
+                )
+                db.add(user)
+
         db.commit()
 
         # Load orders

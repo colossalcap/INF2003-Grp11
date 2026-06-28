@@ -133,7 +133,7 @@ class Alert(Base):
     __tablename__ = "alerts"
 
     alert_id = Column(Integer, primary_key=True, autoincrement=True)
-    customer_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    customer_id = Column(String(255), nullable=False, index=True)
     message = Column(Text, nullable=False)
     alert_type = Column(String(50), default="fraud")
     created_at = Column(DateTime, default=datetime.utcnow)

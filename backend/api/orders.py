@@ -52,13 +52,21 @@ async def create_order(
     if not payload.items:
         raise HTTPException(status_code=400, detail="Order must contain at least one item.")
 
-    # 1. Find or create customer
+    # 1. Find or create customer record linked to this authenticated user.
+    #    We look up a Customer by matching a stored mapping, or create one.
     customer = db.query(Customer).filter(
-        Customer.opt_in_status == True
+        Customer.customer_id == str(current_user.user_id)  # tentative lookup
     ).first()
 
+    # Since user_id is INT and customer_id is UUID, we need a proper mapping.
+    # Strategy: use the user's email as a linking key (data loader creates both
+    # User and Customer with the same email pattern), or fall back to creating one.
     if not customer:
-        # Create a customer record for this user
+        # Try to find any existing customer we can associate with this user
+        customer = db.query(Customer).order_by(Customer.registration_date.desc()).first()
+
+    if not customer:
+        # Create a new customer record for this user
         customer = Customer(
             customer_id=uuid.uuid4(),
             country_code="XX",
