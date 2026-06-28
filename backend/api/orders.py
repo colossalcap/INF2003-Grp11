@@ -68,7 +68,7 @@ async def create_order(
     if not customer:
         # Create a new customer record for this user
         customer = Customer(
-            customer_id=uuid.uuid4(),
+            customer_id=str(uuid.uuid4()),
             country_code="XX",
             opt_in_status=True,
         )
@@ -102,7 +102,7 @@ async def create_order(
     # 3. Create order in a transaction
     try:
         order = Order(
-            order_id=uuid.uuid4(),
+            order_id=str(uuid.uuid4()),
             customer_id=customer.customer_id,
             total_amount=round(total_amount, 2),
             status="confirmed",

@@ -12,9 +12,8 @@ from datetime import datetime
 from sqlalchemy import (
     Column, Integer, String, Float, Boolean, DateTime, Text,
     ForeignKey, CheckConstraint,
-    create_engine,
+    create_engine, types,
 )
-from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 
 from config import settings
@@ -24,6 +23,30 @@ Base = declarative_base()
 # Engine and session factory
 engine = create_engine(settings.DATABASE_URL, echo=settings.DEBUG)
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+
+# Detect if we're on SQLite (which lacks native UUID/JSONB)
+_is_sqlite = 'sqlite' in settings.DATABASE_URL
+
+# Import PostgreSQL-specific types (may fail to compile on SQLite)
+try:
+    from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB as PG_JSONB
+    _has_pg_dialect = True
+except ImportError:
+    _has_pg_dialect = False
+
+
+def PortableUUID():
+    """UUID type: PostgreSQL UUID on PG, String(36) on SQLite."""
+    if _has_pg_dialect and not _is_sqlite:
+        return PG_UUID(as_uuid=True)
+    return String(36)
+
+
+def PortableJSONB():
+    """JSONB type: PostgreSQL JSONB on PG, generic JSON on SQLite."""
+    if _has_pg_dialect and not _is_sqlite:
+        return PG_JSONB
+    return types.JSON
 
 
 # ------------------------------------------------------------
@@ -47,7 +70,7 @@ class User(Base):
 class Customer(Base):
     __tablename__ = "customers"
 
-    customer_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    customer_id = Column(PortableUUID(), primary_key=True, default=lambda: str(uuid.uuid4()))
     registration_date = Column(DateTime, default=datetime.utcnow)
     country_code = Column(String(3))
     opt_in_status = Column(Boolean, default=True)
@@ -81,8 +104,8 @@ class Product(Base):
 class Order(Base):
     __tablename__ = "orders"
 
-    order_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    customer_id = Column(UUID(as_uuid=True), ForeignKey("customers.customer_id"), nullable=False, index=True)
+    order_id = Column(PortableUUID(), primary_key=True, default=lambda: str(uuid.uuid4()))
+    customer_id = Column(PortableUUID(), ForeignKey("customers.customer_id"), nullable=False, index=True)
     order_date = Column(DateTime, default=datetime.utcnow)
     total_amount = Column(Float, default=0.0)
     status = Column(String(20), default="pending")  # pending, confirmed, shipped, cancelled
@@ -99,7 +122,7 @@ class OrderItem(Base):
     __tablename__ = "order_items"
 
     item_id = Column(Integer, primary_key=True, autoincrement=True)
-    order_id = Column(UUID(as_uuid=True), ForeignKey("orders.order_id", ondelete="CASCADE"), nullable=False, index=True)
+    order_id = Column(PortableUUID(), ForeignKey("orders.order_id", ondelete="CASCADE"), nullable=False, index=True)
     product_id = Column(String(50), ForeignKey("products.product_id"), nullable=False)
     quantity = Column(Integer, nullable=False)
 
@@ -121,7 +144,7 @@ class Outbox(Base):
     event_id = Column(Integer, primary_key=True, autoincrement=True)
     aggregate_id = Column(String(255), nullable=False)
     event_type = Column(String(100), nullable=False, index=True)
-    payload = Column(JSONB, nullable=False)
+    payload = Column(PortableJSONB(), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     processed = Column(Boolean, default=False, index=True)
 
@@ -147,7 +170,7 @@ class OrderAuditLog(Base):
     __tablename__ = "order_audit_log"
 
     audit_id = Column(Integer, primary_key=True, autoincrement=True)
-    order_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    order_id = Column(PortableUUID(), nullable=False, index=True)
     changed_by = Column(String(50))
     field_name = Column(String(100))
     old_value = Column(Text)

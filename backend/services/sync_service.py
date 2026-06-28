@@ -31,7 +31,7 @@ async def start_outbox_processor():
         return
 
     _outbox_task = asyncio.create_task(_process_outbox_loop())
-    print(f"📬 Outbox processor started (poll interval: {settings.OUTBOX_POLL_INTERVAL_SECONDS}s).")
+    print(f"[OUTBOX] Outbox processor started (poll interval: {settings.OUTBOX_POLL_INTERVAL_SECONDS}s).")
 
 
 async def stop_outbox_processor():
@@ -55,7 +55,7 @@ async def _process_outbox_loop():
         try:
             await process_outbox_batch()
         except Exception as e:
-            print(f"⚠️ Outbox processor error: {e}")
+            print(f"[WARN] Outbox processor error: {e}")
         await asyncio.sleep(settings.OUTBOX_POLL_INTERVAL_SECONDS)
 
 
@@ -85,7 +85,7 @@ async def process_outbox_batch(batch_size: int = 50):
         db.commit()
 
         if events:
-            print(f"📬 Processed {len(events)} outbox events.")
+            print(f"[OUTBOX] Processed {len(events)} outbox events.")
 
     finally:
         db.close()
@@ -107,7 +107,7 @@ async def _handle_outbox_event(event: Outbox):
                 customer_id=str(customer_id),
                 order_amount=total_amount,
             )
-            print(f"  ✅ Synced order to MongoDB for customer {customer_id}")
+            print(f"  [OK] Synced order to MongoDB for customer {customer_id}")
 
     # Additional event types can be handled here:
     # elif event.event_type == "order_cancelled": ...

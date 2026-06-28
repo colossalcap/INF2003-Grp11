@@ -2,7 +2,50 @@
 -- INF2003 Group 11 — PostgreSQL Trigger Definitions
 -- Automatically executed on container startup via
 -- /docker-entrypoint-initdb.d/01_triggers.sql
+-- Also creates the core tables the triggers depend on.
 -- ============================================================
+
+-- ============================================================
+-- 0. CORE TABLES (created here so triggers can reference them)
+--    The ORM will see these exist and skip recreation.
+-- ============================================================
+CREATE TABLE IF NOT EXISTS customers (
+    customer_id     UUID PRIMARY KEY,
+    registration_date TIMESTAMP DEFAULT NOW(),
+    country_code    VARCHAR(3),
+    opt_in_status   BOOLEAN DEFAULT TRUE
+);
+
+CREATE TABLE IF NOT EXISTS products (
+    product_id      VARCHAR(50) PRIMARY KEY,
+    category        VARCHAR(100) NOT NULL,
+    unit_price      DECIMAL(10,2) NOT NULL,
+    stock_quantity  INTEGER NOT NULL CHECK (stock_quantity >= 0)
+);
+
+CREATE TABLE IF NOT EXISTS orders (
+    order_id        UUID PRIMARY KEY,
+    customer_id     UUID NOT NULL REFERENCES customers(customer_id),
+    order_date      TIMESTAMP DEFAULT NOW(),
+    total_amount    DECIMAL(12,2) DEFAULT 0.0,
+    status          VARCHAR(20) DEFAULT 'pending'
+);
+
+CREATE TABLE IF NOT EXISTS order_items (
+    item_id         SERIAL PRIMARY KEY,
+    order_id        UUID NOT NULL REFERENCES orders(order_id) ON DELETE CASCADE,
+    product_id      VARCHAR(50) NOT NULL REFERENCES products(product_id),
+    quantity        INTEGER NOT NULL CHECK (quantity > 0)
+);
+
+CREATE TABLE IF NOT EXISTS outbox (
+    event_id        SERIAL PRIMARY KEY,
+    aggregate_id    VARCHAR(255) NOT NULL,
+    event_type      VARCHAR(100) NOT NULL,
+    payload         JSONB NOT NULL,
+    created_at      TIMESTAMP DEFAULT NOW(),
+    processed       BOOLEAN DEFAULT FALSE
+);
 
 -- ============================================================
 -- 1. ORDER AUDIT LOG TABLE (required for Audit Trigger)

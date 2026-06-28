@@ -50,7 +50,7 @@ async def init_mongo_indexes():
     # funnel_metrics
     await db.funnel_metrics.create_index([("stage", 1), ("computed_at", -1)])
 
-    print(f"✅ MongoDB indexes created on database '{settings.MONGO_DB}'.")
+    print(f"[OK] MongoDB indexes created on database '{settings.MONGO_DB}'.")
 
 
 # ------------------------------------------------------------
@@ -269,7 +269,7 @@ async def detect_cart_abandonment() -> List[dict]:
             for r in results
         ]
     except Exception as e:
-        print(f"⚠️ Cart abandonment query error: {e}")
+        print(f"[WARN] Cart abandonment query error: {e}")
         return []
 
 

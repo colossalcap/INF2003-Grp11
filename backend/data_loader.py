@@ -33,7 +33,7 @@ def load_customers_postgres(batch_size: int = 1000):
     """Load customers.csv into PostgreSQL."""
     filepath = DATA_DIR / "customers.csv"
     if not filepath.exists():
-        print(f"⚠️ {filepath} not found. Skipping customers.")
+        print(f"[WARN] {filepath} not found. Skipping customers.")
         return 0
 
     df = pd.read_csv(filepath)
@@ -43,7 +43,7 @@ def load_customers_postgres(batch_size: int = 1000):
     try:
         for _, row in df.iterrows():
             customer = Customer(
-                customer_id=uuid.uuid4(),
+                customer_id=str(uuid.uuid4()),
                 country_code=str(row.get("country", "XX"))[:3],
                 opt_in_status=str(row.get("marketing_opt_in", "True")).lower() == "true",
             )
@@ -67,10 +67,10 @@ def load_customers_postgres(batch_size: int = 1000):
                 print(f"  Loaded {count} customers...")
 
         db.commit()
-        print(f"✅ Loaded {count} customers into PostgreSQL.")
+        print(f"[OK] Loaded {count} customers into PostgreSQL.")
     except Exception as e:
         db.rollback()
-        print(f"❌ Error loading customers: {e}")
+        print(f"[ERROR] Error loading customers: {e}")
         raise
     finally:
         db.close()
@@ -82,7 +82,7 @@ def load_products_postgres(batch_size: int = 1000):
     """Load products.csv into PostgreSQL."""
     filepath = DATA_DIR / "products.csv"
     if not filepath.exists():
-        print(f"⚠️ {filepath} not found. Skipping products.")
+        print(f"[WARN] {filepath} not found. Skipping products.")
         return 0
 
     df = pd.read_csv(filepath)
@@ -109,10 +109,10 @@ def load_products_postgres(batch_size: int = 1000):
                 print(f"  Loaded {count} products...")
 
         db.commit()
-        print(f"✅ Loaded {count} products into PostgreSQL.")
+        print(f"[OK] Loaded {count} products into PostgreSQL.")
     except Exception as e:
         db.rollback()
-        print(f"❌ Error loading products: {e}")
+        print(f"[ERROR] Error loading products: {e}")
         raise
     finally:
         db.close()
@@ -126,7 +126,7 @@ def load_orders_postgres(batch_size: int = 500):
     items_path = DATA_DIR / "order_items.csv"
 
     if not orders_path.exists():
-        print(f"⚠️ {orders_path} not found. Skipping orders.")
+        print(f"[WARN] {orders_path} not found. Skipping orders.")
         return 0
 
     df_orders = pd.read_csv(orders_path)
@@ -144,7 +144,7 @@ def load_orders_postgres(batch_size: int = 500):
             int_cid = int(cid)
             # Create a unique customer per CSV customer_id
             new_cust = Customer(
-                customer_id=uuid.uuid4(),
+                customer_id=str(uuid.uuid4()),
                 country_code="XX",
                 opt_in_status=True,
             )
@@ -174,7 +174,7 @@ def load_orders_postgres(batch_size: int = 500):
                 continue
 
             order = Order(
-                order_id=uuid.uuid4(),
+                order_id=str(uuid.uuid4()),
                 customer_id=cust_uuid,
                 order_date=pd.to_datetime(row["order_time"]),
                 total_amount=float(row.get("total_usd", 0)),
@@ -207,10 +207,10 @@ def load_orders_postgres(batch_size: int = 500):
                 print(f"  Loaded {count} orders...")
 
         db.commit()
-        print(f"✅ Loaded {count} orders into PostgreSQL.")
+        print(f"[OK] Loaded {count} orders into PostgreSQL.")
     except Exception as e:
         db.rollback()
-        print(f"❌ Error loading orders: {e}")
+        print(f"[ERROR] Error loading orders: {e}")
         raise
     finally:
         db.close()
@@ -230,7 +230,7 @@ async def load_clickstream_to_mongo(batch_size: int = 5000):
     sessions_path = DATA_DIR / "sessions.csv"
 
     if not events_path.exists() and not sessions_path.exists():
-        print(f"⚠️ No clickstream files found. Skipping MongoDB load.")
+        print(f"[WARN] No clickstream files found. Skipping MongoDB load.")
         return 0
 
     count = 0
@@ -286,7 +286,7 @@ async def load_clickstream_to_mongo(batch_size: int = 5000):
             if event_count % batch_size == 0:
                 print(f"  Loaded {event_count} clickstream events into MongoDB...")
 
-        print(f"✅ Loaded {event_count} clickstream events into MongoDB.")
+        print(f"[OK] Loaded {event_count} clickstream events into MongoDB.")
         count += event_count
 
     return count
@@ -298,7 +298,7 @@ async def load_clickstream_to_mongo(batch_size: int = 5000):
 def run_data_loader():
     """Run the full data ingestion pipeline."""
     print("=" * 60)
-    print("📦 E-Commerce Data Loader")
+    print("[DATA LOADER] E-Commerce Data Loader")
     print("=" * 60)
 
     print("\n--- PostgreSQL: Customers ---")
@@ -314,7 +314,7 @@ def run_data_loader():
     asyncio.run(load_clickstream_to_mongo())
 
     print("\n" + "=" * 60)
-    print("✅ Data loading complete!")
+    print("[OK] Data loading complete!")
     print("=" * 60)
 
 
