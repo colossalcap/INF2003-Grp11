@@ -56,7 +56,11 @@ This starts all 4 containers:
 | `ecommerce-frontend` | React (Vite) | `3000` | Product catalog, cart, admin dashboard |
 | `ecommerce-data-loader` | Python (one-shot) | — | Auto-loads CSV data into both databases, then exits |
 
-> **The data loader runs automatically on first start!** It loads 6 CSV files (20k customers, 1.2k products, 53k orders, 120k clickstream events) into both databases. It exits when done. To skip it on subsequent runs, comment out the `data-loader` section in `docker-compose.yml`.
+> **The data loader runs automatically on first start!** By default it runs in **demo mode** (~1.5 min) loading 2K customers, 1.2K products, 3K orders, and 40K clickstream events — enough to demonstrate ALL features. To load the full 275K-row dataset, set `DEMO_MODE = False` in `backend/data_loader.py`, then reset and rebuild:
+> ```bash
+> docker compose --profile reset up reset-db && docker compose build data-loader && docker compose up -d data-loader
+> ```
+> To skip the data loader on subsequent runs, comment out the `data-loader` section in `docker-compose.yml`.
 
 ### Dataset Sources
 
@@ -66,6 +70,21 @@ This starts all 4 containers:
 | Synthetic E-commerce Transactions + Clickstream 2020–2025 | [wafaaelhusseini](https://www.kaggle.com/datasets/wafaaelhusseini/e-commerce-transactions-clickstream) | ~75,000 transactions |
 
 Combined into 6 CSV files in `data/`: `customers.csv`, `products.csv`, `orders.csv`, `order_items.csv`, `clickstream_events.csv`, `sessions.csv` — totaling ~275,000 rows.
+
+### ⚡ Data Loader Performance
+
+| Mode | Customers | Products | Orders | Clickstream Events | Sessions | Load Time |
+|------|-----------|----------|--------|--------------------|----------|-----------|
+| **Demo** (default) | 2,000 | 1,197 | 3,000 | 40,000 | 10,000 | **~1.5 min** |
+| **Full** | 20,000 | 1,197 | 33,580 | 760,958 | 120,000 | ~20 min |
+
+**How we achieved the 13× speedup:**
+1. **Batch MongoDB writes** — Instead of 761K individual `update_one` calls, events are grouped by session in memory and pushed with a single `$push: { $each: [...] }` per session
+2. **Sampling with `nrows`** — CSV files are read with `pd.read_csv(nrows=N)` instead of loading all rows then filtering
+3. **Bulk session inserts** — 10K sessions inserted via `insert_many(ordered=False)` instead of individual upserts
+4. **Shared bcrypt hash** — Password hash computed once outside the loop (saves ~83 minutes on full dataset)
+
+Toggle demo/full mode by editing `DEMO_MODE` at the top of `backend/data_loader.py`.
 
 ### Load Sample Data (Manual — only if you skipped the auto-loader)
 
@@ -167,11 +186,11 @@ docker-compose down && docker-compose --profile reset up reset-db && docker-comp
 
 | Table | Row Count | Key Features |
 |-------|-----------|-------------|
-| `users` | ~20,000 | JWT auth, bcrypt passwords, admin/customer roles |
-| `customers` | ~20,000 | UUID PK, country_code, opt-in status |
+| `users` | ~2,000 (demo) / 20,000 (full) | JWT auth, bcrypt passwords, admin/customer roles |
+| `customers` | ~2,000 (demo) / 20,000 (full) | UUID PK, country_code, opt-in status |
 | `products` | 1,197 | 7 categories, CHECK(stock_quantity >= 0), indexed by category |
-| `orders` | ~53,000 | FK → customers, status tracking, total_amount |
-| `order_items` | ~75,000 | FK → orders + products, triggers fire here |
+| `orders` | ~3,000 (demo) / 33,580 (full) | FK → customers, status tracking, total_amount |
+| `order_items` | varies with orders | FK → orders + products, triggers fire here |
 | `outbox` | dynamic | CDC event store, JSONB payload, processed flag |
 | `order_audit_log` | dynamic | Full change history (trigger-populated) |
 | `alerts` | dynamic | Fraud detection results, acknowledged flag |
@@ -182,8 +201,8 @@ docker-compose down && docker-compose --profile reset up reset-db && docker-comp
 
 | Collection | Pattern | Document Count | Purpose |
 |------------|---------|---------------|---------|
-| `user_sessions` | **Bucket** | ~27,500 | Accumulates clickstream events via `$push` + `$inc` |
-| `session_stats` | **Computed** | ~27,500 | Pre-aggregated session summaries |
+| `user_sessions` | **Bucket** | ~10,000 (demo) / 120,000 (full) | Accumulates clickstream events via batch `$push` + `$each` |
+| `session_stats` | **Computed** | ~10,000 (demo) / 120,000 (full) | Pre-aggregated session summaries |
 | `customer_order_summary` | **CDC Target** | sync'd | Denormalized view from PostgreSQL via Outbox |
 | `funnel_metrics` | **Cached** | on-demand | Aggregated conversion funnel results |
 

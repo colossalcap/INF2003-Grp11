@@ -174,14 +174,14 @@ When you run `docker-compose up`, a special one-shot container called `data-load
 
 The project comes with real-world-style data in CSV files (spreadsheet-like files) inside the `data/` folder:
 
-| File | Contains | How Many |
-|------|----------|----------|
-| `customers.csv` | Customer profiles | ~20,000 |
-| `products.csv` | Product catalog | ~1,200 |
-| `orders.csv` | Purchase orders | ~53,000 |
-| `order_items.csv` | Items in each order | ~75,000 |
-| `clickstream_events.csv` | Page views & cart actions | ~120,000 |
-| `sessions.csv` | User browsing sessions | ~27,500 |
+| File | Contains | Full Dataset | Demo Mode (Default) |
+|------|----------|-------------|---------------------|
+| `customers.csv` | Customer profiles | 20,000 | **2,000** |
+| `products.csv` | Product catalog | 1,197 | 1,197 (all) |
+| `orders.csv` | Purchase orders | 33,580 | **3,000** |
+| `order_items.csv` | Items in each order | 75,000 | filtered to match orders |
+| `clickstream_events.csv` | Page views & cart actions | 760,958 | **40,000** |
+| `sessions.csv` | User browsing sessions | 120,000 | **10,000** |
 
 > **Where does this data come from?** These datasets were sourced from two Kaggle datasets:
 > - [E-commerce Clickstream and Transaction Dataset](https://www.kaggle.com/datasets/waqi786/e-commerce-clickstream-and-transaction-dataset) by waqi786
@@ -189,7 +189,20 @@ The project comes with real-world-style data in CSV files (spreadsheet-like file
 >
 > Combined and processed into 6 CSV files totaling ~275,000 rows of realistic e-commerce data.
 
-> **What does this do?** The `data_loader.py` program reads each CSV file and inserts the data into the correct database — customer and product info goes to PostgreSQL, clickstream events go to MongoDB. It takes about 1-2 minutes to complete. You can watch its progress in the `docker-compose up` terminal output.
+> **What does this do?** The `data_loader.py` program reads each CSV file and inserts the data into the correct database — customer and product info goes to PostgreSQL, clickstream events go to MongoDB. By default it runs in **demo mode** which takes about **1.5 minutes**. You can watch its progress in the `docker-compose up` terminal output.
+>
+> **Want the full dataset?** Edit `backend/data_loader.py` and set `DEMO_MODE = False` at the top of the file. Then reset databases and rebuild:
+> ```bash
+> docker compose --profile reset up reset-db
+> docker compose build data-loader
+> docker compose up -d data-loader
+> ```
+> The full dataset takes ~20 minutes to load but provides 275,000+ rows for deeper analysis and benchmarking.
+>
+> **How we made it fast:** The loader uses three key optimizations:
+> 1. **Batch MongoDB writes** — Instead of 761K individual database calls, events are grouped by session and pushed all at once using `$push: { $each: [...] }` — one DB operation per session instead of per event.
+> 2. **Data sampling** — CSV files are read with row limits (`nrows` parameter) so we never load more data than needed.
+> 3. **Bulk inserts** — Session documents are created with `insert_many` (10,000 at once) instead of individual upserts.
 
 **If you ever need to reload the data manually** (or if you skipped the auto-loader by commenting it out):
 

@@ -25,14 +25,17 @@
 
 ```bash
 cd INF2003-Grp11
-docker-compose up
+docker compose up
 ```
 
 Wait until you see:
 ```
+ecommerce-data-loader | [OK] Data loading complete!
 ecommerce-data-loader exited with code 0
 ecommerce-backend | 🚀 Starting E-Commerce Analytics Platform...
 ```
+
+> **The data loader takes ~1.5 minutes in demo mode (default).** It loads 2K customers, 1,197 products, 3K orders, and 40K clickstream events — enough to demonstrate ALL features. If you need the full 275K-row dataset, see the README.
 
 ### What's running:
 

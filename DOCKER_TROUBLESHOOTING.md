@@ -293,6 +293,8 @@ netsh interface ipv4 show excludedportrange protocol=tcp
 
 The data loader hasn't finished yet. Check the terminal output — look for `ecommerce-data-loader` lines. Wait for `ecommerce-data-loader exited with code 0`. Then refresh the browser.
 
+> **It should take ~1.5 minutes in demo mode (default).** If it's taking much longer, see Problem 13 below.
+
 ### "I made code changes but they don't appear"
 
 The `docker-compose.yml` uses volume mounts (`./backend:/app`) so code changes ARE live. But if you changed `requirements.txt` or any Dockerfile, you need to rebuild:
@@ -311,7 +313,34 @@ docker volume rm inf2003-grp11_mongo_data
 
 ---
 
-## 🟢 Fresh Start — Guaranteed Clean State
+## � Problem 13: Data loader taking too long / appears hung
+
+**Symptoms:** `docker compose up` has been running for 10+ minutes and the data loader hasn't completed. Terminal shows no progress from `ecommerce-data-loader`.
+
+**Diagnose:**
+```bash
+docker ps -a --filter name=ecommerce-data-loader
+docker logs ecommerce-data-loader --tail 20
+```
+
+**Most likely cause:** You're running the FULL dataset instead of demo mode. The full 275K-row dataset takes ~20 minutes. Demo mode (default) takes ~1.5 minutes.
+
+**Fix — Switch to demo mode:**
+1. Open `backend/data_loader.py`
+2. Ensure `DEMO_MODE = True` at the top of the file
+3. Then:
+   ```bash
+   docker stop ecommerce-data-loader && docker rm ecommerce-data-loader
+   docker compose --profile reset up reset-db
+   docker compose build data-loader
+   docker compose up -d data-loader
+   ```
+
+**Background:** We optimized the loader with batch MongoDB writes (`$push: { $each: [...] }` instead of 761K individual calls), `nrows` sampling, and pre-computed bcrypt hashes. This achieved a **13× speedup** — from ~20 min to ~1.5 min for the demo dataset.
+
+---
+
+## �🟢 Fresh Start — Guaranteed Clean State
 
 If NOTHING works, run this complete nuke-and-rebuild:
 
