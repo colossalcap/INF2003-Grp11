@@ -49,14 +49,6 @@ Thumbs.db
 # Logs
 *.log
 
-# CSV data (large files — keep archived only)
-data/customers.csv
-data/products.csv
-data/orders.csv
-data/order_items.csv
-data/clickstream_events.csv
-data/sessions.csv
-
 # Logs
 *.log
 
