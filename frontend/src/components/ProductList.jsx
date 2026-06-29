@@ -150,7 +150,7 @@ export default function ProductList({ user, cartItems, addToCart }) {
                   )}
                   <div className="product-icon">{icon}</div>
                   <h4 title={p.name}>{p.name || `Product #${p.product_id}`}</h4>
-                  <p className="category">{p.category} <span style={{color: '#94a3b8', fontSize: '0.75rem'}}>#{p.product_id}</span></p>
+                  <p className="category">{p.category}</p>
                   <p className="price">${p.unit_price?.toFixed(2)}</p>
                   <p className={`stock ${stockClass}`}>
                     {p.stock_quantity < 20 ? '⚠️ ' : ''}Stock: {p.stock_quantity}

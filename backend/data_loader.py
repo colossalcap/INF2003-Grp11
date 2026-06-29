@@ -10,6 +10,7 @@ Performance: Set DEMO_MODE=True for lecturer demos (~1-2 min).
 """
 
 import csv
+import re
 import uuid
 import asyncio
 from datetime import datetime
@@ -120,9 +121,13 @@ def load_products_postgres(batch_size: int = 1000):
             if existing:
                 continue
 
+            raw_name = str(row.get("name", f"Product {row['product_id']}"))
+            # Strip trailing number (e.g. "SSD MediumBlue 149" → "SSD MediumBlue")
+            clean_name = re.sub(r'\s+\d+$', '', raw_name)
+
             product = Product(
                 product_id=str(row["product_id"]),
-                name=str(row.get("name", f"Product {row['product_id']}")),
+                name=clean_name,
                 category=str(row.get("category", "Uncategorized")),
                 unit_price=float(row.get("price_usd", 0)),
                 stock_quantity=1000,  # Default stock
