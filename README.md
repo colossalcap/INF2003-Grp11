@@ -22,11 +22,13 @@
 |----------|----------|---------|
 | **`README.md`** (this file) | Developers & Evaluators | Technical overview, API reference, architecture |
 | **`walkthrough.md`** | Everyone (no coding knowledge needed) | Friendly guide with glossary, analogies, step-by-step instructions |
+| **`DOCKER_TROUBLESHOOTING.md`** | Anyone debugging setup issues | 12+ common Docker problems with diagnostic commands and fixes |
 | **`docs/ER_Diagram.md`** | Database Designers | Full entity-relationship diagram with relationships |
 | **`docs/G11_Final_Report.md`** | Academic Submission | 8-page final report covering all INF2003 requirements |
 | **`docs/G11_Progress_Report.md`** | Academic Submission | Mid-project progress report |
 
 > **New to this project?** Start with [`walkthrough.md`](walkthrough.md) — it explains everything in plain English with analogies and a glossary.
+> **Having Docker problems?** See [`DOCKER_TROUBLESHOOTING.md`](DOCKER_TROUBLESHOOTING.md) — 12 common issues with step-by-step fixes.
 
 ---
 
@@ -34,6 +36,7 @@
 
 ### Prerequisites
 - [Docker Desktop](https://www.docker.com/products/docker-desktop) (includes Docker Compose)
+- **Troubleshooting:** If you run into issues, check [`DOCKER_TROUBLESHOOTING.md`](DOCKER_TROUBLESHOOTING.md) first — it covers port conflicts, WSL2 setup, memory limits, permission issues, and more.
 
 ### One Command
 
@@ -434,14 +437,30 @@ All settings are in environment variables (defined in `docker-compose.yml` for D
 
 ## 🛠️ Troubleshooting
 
+### Common Issues (Quick Fix)
+
 | Problem | Solution |
 |---------|----------|
 | "Port already allocated" | Stop other services using ports 5432/27017/8000/3000 |
-| No products on website | Run `python data_loader.py` inside backend container |
-| Login not working | Register a new account first, or check token validity |
+| No products on website | Wait for `ecommerce-data-loader` to finish, then refresh |
+| Login not working | Register a new account first at `/login` |
 | "Admin access required" | Your account has `customer` role — need `admin` role |
 | Tests fail | Ensure `docker-compose up` is running |
-| Docker container won't start | Run `docker-compose down -v` then `docker-compose up` |
+| Containers won't start | Run `docker-compose down -v` then `docker-compose up` |
+
+### Docker-Specific Problems?
+
+See the full guide: **[DOCKER_TROUBLESHOOTING.md](DOCKER_TROUBLESHOOTING.md)** — covers 12+ Docker issues including:
+
+- Docker not installed / not running
+- WSL2 setup (Windows)
+- Port conflicts with diagnostics
+- Memory/CPU limits
+- Permission issues (Linux/Mac)
+- Build cache problems
+- Volume mount issues
+- Docker Hub rate limiting
+- Complete nuke-and-rebuild instructions
 
 ---
 
