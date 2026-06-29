@@ -23,6 +23,12 @@ from docx.oxml import parse_xml
 import os
 DOCS_DIR = Path(os.path.dirname(os.path.abspath(__file__))) if '__file__' in dir() else Path(os.getcwd()) / "docs"
 OUTPUT_PATH = DOCS_DIR / "G11_Final_Report.docx"
+# Fallback if file is locked (e.g., open in Word)
+try:
+    OUTPUT_PATH.touch(exist_ok=True)
+except PermissionError:
+    import time
+    OUTPUT_PATH = DOCS_DIR / f"G11_Final_Report_{int(time.time())}.docx"
 
 # Brand colors
 PRIMARY = RGBColor(0x19, 0x76, 0xD2)    # Blue (headings)
@@ -315,6 +321,44 @@ def build_document():
     # ── SECTION 3: Relational Database ──────────────────
     add_heading_styled(doc, "3. Relational Database (PostgreSQL)", 1)
 
+    # ── ER Diagram Image ────────────────────────────────
+    from pathlib import Path as P
+    erd_path = P(DOCS_DIR) / "ER_Diagram.png"
+    if erd_path.exists():
+        add_heading_styled(doc, "3.0 Entity-Relationship Diagram", 2)
+        # Add the ER diagram image - large enough to read
+        img_paragraph = doc.add_paragraph()
+        img_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = img_paragraph.add_run()
+        run.add_picture(str(erd_path), width=Inches(6.3))
+        # Caption
+        add_styled_paragraph(doc,
+            "Figure 1: Complete Entity-Relationship Diagram showing all 8 PostgreSQL tables (left), "
+            "4 MongoDB collections (right), relationships (solid blue arrows), database triggers "
+            "(dashed orange arrows), and the CDC sync flow via the Outbox Pattern (purple arrow).",
+            size=8, italic=True, color=MED_GRAY, alignment=WD_ALIGN_PARAGRAPH.CENTER)
+
+        # Diagram explanation
+        add_styled_paragraph(doc,
+            "Diagram Explanation: The ER diagram above illustrates the complete dual-database "
+            "architecture. On the left side (blue), 8 PostgreSQL tables model the transactional "
+            "core: users stores authentication credentials with bcrypt-hashed passwords, customers "
+            "holds customer profiles with UUID primary keys, products maintains the catalog with "
+            "CHECK constraints on stock quantities, orders records each purchase linked to a "
+            "customer, and order_items captures individual line items with foreign keys to both "
+            "orders and products. The outbox table serves as a CDC event store, order_audit_log "
+            "tracks every field-level change, and alerts records fraud detection results.", size=10)
+
+        add_styled_paragraph(doc,
+            "On the right side (green), 4 MongoDB collections implement established NoSQL patterns: "
+            "user_sessions uses the Bucket Pattern to accumulate clickstream events via atomic "
+            "$push + $inc operations, session_stats provides pre-computed session aggregates "
+            "(Computed Pattern), customer_order_summary holds denormalized order data synced via "
+            "CDC (CDC Target Pattern), and funnel_metrics caches conversion funnel results (Cached "
+            "Pattern). Relationships are shown as solid blue arrows, triggers as dashed orange "
+            "arrows, and the CDC sync flow as a purple arrow.", size=10)
+        doc.add_paragraph()
+
     add_heading_styled(doc, "3.1 Schema (8 Tables)", 2)
     add_styled_paragraph(doc,
         "The PostgreSQL schema consists of 8 tables with 3 relationship types and "
@@ -527,9 +571,16 @@ def build_document():
         size=9, color=MED_GRAY, alignment=WD_ALIGN_PARAGRAPH.CENTER, italic=True)
 
     # ── Save ────────────────────────────────────────────
-    doc.save(str(OUTPUT_PATH))
-    print(f"DOCX saved to: {OUTPUT_PATH}")
-    print(f"File size: {OUTPUT_PATH.stat().st_size / 1024:.1f} KB")
+    try:
+        doc.save(str(OUTPUT_PATH))
+        print(f"DOCX saved to: {OUTPUT_PATH}")
+        print(f"File size: {OUTPUT_PATH.stat().st_size / 1024:.1f} KB")
+    except PermissionError:
+        import time
+        alt_path = DOCS_DIR / f"G11_Final_Report_{int(time.time())}.docx"
+        doc.save(str(alt_path))
+        print(f"DOCX saved to: {alt_path} (original was locked)")
+        print(f"File size: {alt_path.stat().st_size / 1024:.1f} KB")
 
 
 if __name__ == "__main__":

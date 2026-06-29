@@ -51,6 +51,18 @@ FastAPI connects to PostgreSQL via SQLAlchemy (ORM + raw SQL) and to MongoDB via
 
 ## 3. Relational Database (PostgreSQL)
 
+### 3.0 Entity-Relationship Diagram
+
+![ER Diagram](ER_Diagram.png)
+
+*Figure 1: Complete Entity-Relationship Diagram showing all 8 PostgreSQL tables (left), 4 MongoDB collections (right), relationships (solid arrows), database triggers (dashed arrows), and the CDC sync flow via the Outbox Pattern (purple arrow).*
+
+**Diagram Explanation:** The ER diagram above illustrates the complete dual-database architecture. On the **left side** (blue), the 8 PostgreSQL tables model the transactional core: `users` stores authentication credentials with bcrypt-hashed passwords, `customers` holds customer profiles with UUID primary keys, `products` maintains the catalog with CHECK constraints on stock quantities, `orders` records each purchase linked to a customer, and `order_items` captures individual line items with foreign keys to both orders and products. The `outbox` table serves as a CDC event store, `order_audit_log` tracks every field-level change, and `alerts` records fraud detection results.
+
+On the **right side** (green), 4 MongoDB collections implement established NoSQL patterns: `user_sessions` uses the Bucket Pattern to accumulate clickstream events via atomic `$push` + `$inc` operations, `session_stats` provides pre-computed session aggregates (Computed Pattern), `customer_order_summary` holds denormalized order data synced via CDC (CDC Target Pattern), and `funnel_metrics` caches conversion funnel results (Cached Pattern).
+
+**Relationships** are shown as solid blue arrows: customers→orders (1:M), orders→order_items (1:M), and products→order_items (M:1). **Triggers** are shown as dashed orange arrows: 4 PostgreSQL triggers automatically handle stock validation, inventory deduction, outbox CDC event generation, and audit logging. The **CDC sync** flow (purple arrow) shows how order data propagates from PostgreSQL's `outbox` table to MongoDB's `customer_order_summary` collection via an asynchronous background poller running every 5 seconds.
+
 ### 3.1 Schema (8 Tables)
 `users` (authentication), `customers` (profiles, UUID PK), `products` (catalog, 1,197 items, CHECK stock >= 0), `orders` (~53,000 rows, FK to customers), `order_items` (~75,000 rows, FK to orders + products), `outbox` (CDC event store, JSONB payload), `order_audit_log` (change history, trigger-populated), `alerts` (fraud detection results)
 
