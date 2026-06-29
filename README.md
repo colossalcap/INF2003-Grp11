@@ -22,12 +22,13 @@
 |----------|----------|---------|
 | **`README.md`** (this file) | Developers & Evaluators | Technical overview, API reference, architecture |
 | **`walkthrough.md`** | Everyone (no coding knowledge needed) | Friendly guide with glossary, analogies, step-by-step instructions |
+| **`demoguide.md`** | Team members doing demos | Scripted walkthrough of every feature for presentations & video |
 | **`DOCKER_TROUBLESHOOTING.md`** | Anyone debugging setup issues | 12+ common Docker problems with diagnostic commands and fixes |
 | **`docs/ER_Diagram.md`** | Database Designers | Full entity-relationship diagram with relationships |
 | **`docs/G11_Final_Report.md`** | Academic Submission | 8-page final report covering all INF2003 requirements |
 | **`docs/G11_Progress_Report.md`** | Academic Submission | Mid-project progress report |
 
-> **New to this project?** Start with [`walkthrough.md`](walkthrough.md) — it explains everything in plain English with analogies and a glossary.
+> **New to this project?** Start with [`walkthrough.md`](walkthrough.md). **Doing a demo?** Use [`demoguide.md`](demoguide.md). **Docker issues?** See [`DOCKER_TROUBLESHOOTING.md`](DOCKER_TROUBLESHOOTING.md).
 > **Having Docker problems?** See [`DOCKER_TROUBLESHOOTING.md`](DOCKER_TROUBLESHOOTING.md) — 12 common issues with step-by-step fixes.
 
 ---
