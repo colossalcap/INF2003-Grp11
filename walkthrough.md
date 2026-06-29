@@ -183,6 +183,12 @@ The project comes with real-world-style data in CSV files (spreadsheet-like file
 | `clickstream_events.csv` | Page views & cart actions | ~120,000 |
 | `sessions.csv` | User browsing sessions | ~27,500 |
 
+> **Where does this data come from?** These datasets were sourced from two Kaggle datasets:
+> - [E-commerce Clickstream and Transaction Dataset](https://www.kaggle.com/datasets/waqi786/e-commerce-clickstream-and-transaction-dataset) by waqi786
+> - [Synthetic E-commerce Transactions + Clickstream 2020–2025](https://www.kaggle.com/datasets/wafaaelhusseini/e-commerce-transactions-clickstream) by Wafaa Elhusseini
+>
+> Combined and processed into 6 CSV files totaling ~275,000 rows of realistic e-commerce data.
+
 > **What does this do?** The `data_loader.py` program reads each CSV file and inserts the data into the correct database — customer and product info goes to PostgreSQL, clickstream events go to MongoDB. It takes about 1-2 minutes to complete. You can watch its progress in the `docker-compose up` terminal output.
 
 **If you ever need to reload the data manually** (or if you skipped the auto-loader by commenting it out):

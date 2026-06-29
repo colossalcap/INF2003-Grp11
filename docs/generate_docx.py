@@ -321,42 +321,69 @@ def build_document():
     # ── SECTION 3: Relational Database ──────────────────
     add_heading_styled(doc, "3. Relational Database (PostgreSQL)", 1)
 
-    # ── ER Diagram Image ────────────────────────────────
+    # ── ER Diagram Images (Two Parts) ──────────────────
     from pathlib import Path as P
-    erd_path = P(DOCS_DIR) / "ER_Diagram.png"
-    if erd_path.exists():
+    pg_path = P(DOCS_DIR) / "ER_Diagram_PostgreSQL.png"
+    mongo_path = P(DOCS_DIR) / "ER_Diagram_MongoDB.png"
+
+    if pg_path.exists() and mongo_path.exists():
         add_heading_styled(doc, "3.0 Entity-Relationship Diagram", 2)
-        # Add the ER diagram image - large enough to read
-        img_paragraph = doc.add_paragraph()
-        img_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = img_paragraph.add_run()
-        run.add_picture(str(erd_path), width=Inches(6.3))
-        # Caption
+
+        # Part 1: PostgreSQL
+        add_styled_paragraph(doc, "Part 1: PostgreSQL — Relational Database (8 Tables, 4 Triggers)",
+                             size=11, bold=True, color=PRIMARY, space_after=4)
+        img1 = doc.add_paragraph()
+        img1.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run1 = img1.add_run()
+        run1.add_picture(str(pg_path), width=Inches(6.3))
+
         add_styled_paragraph(doc,
-            "Figure 1: Complete Entity-Relationship Diagram showing all 8 PostgreSQL tables (left), "
-            "4 MongoDB collections (right), relationships (solid blue arrows), database triggers "
-            "(dashed orange arrows), and the CDC sync flow via the Outbox Pattern (purple arrow).",
+            "Figure 1a: PostgreSQL ER Diagram — 8 tables with FK relationships (solid blue arrows), "
+            "4 database triggers (dashed orange arrows), and fraud detection link (dotted gray). "
+            "The trigger info box details all 4 automatic database rules: stock check, inventory "
+            "deduction, outbox CDC event generation, and audit logging.",
             size=8, italic=True, color=MED_GRAY, alignment=WD_ALIGN_PARAGRAPH.CENTER)
 
-        # Diagram explanation
-        add_styled_paragraph(doc,
-            "Diagram Explanation: The ER diagram above illustrates the complete dual-database "
-            "architecture. On the left side (blue), 8 PostgreSQL tables model the transactional "
-            "core: users stores authentication credentials with bcrypt-hashed passwords, customers "
-            "holds customer profiles with UUID primary keys, products maintains the catalog with "
-            "CHECK constraints on stock quantities, orders records each purchase linked to a "
-            "customer, and order_items captures individual line items with foreign keys to both "
-            "orders and products. The outbox table serves as a CDC event store, order_audit_log "
-            "tracks every field-level change, and alerts records fraud detection results.", size=10)
+        doc.add_paragraph()
+
+        # Part 2: MongoDB
+        add_styled_paragraph(doc, "Part 2: MongoDB — NoSQL Document Store (4 Collections, 4 Patterns)",
+                             size=11, bold=True, color=SECONDARY, space_after=4)
+        img2 = doc.add_paragraph()
+        img2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run2 = img2.add_run()
+        run2.add_picture(str(mongo_path), width=Inches(6.3))
 
         add_styled_paragraph(doc,
-            "On the right side (green), 4 MongoDB collections implement established NoSQL patterns: "
+            "Figure 1b: MongoDB Collections — 4 collections implementing established NoSQL design "
+            "patterns: Bucket Pattern (user_sessions), Computed Pattern (session_stats), CDC Target "
+            "Pattern (customer_order_summary), and Cached Pattern (funnel_metrics). The CDC sync box "
+            "explains the Outbox Pattern flow from PostgreSQL to MongoDB. The operations box lists "
+            "all MongoDB operations and indexes used.",
+            size=8, italic=True, color=MED_GRAY, alignment=WD_ALIGN_PARAGRAPH.CENTER)
+
+        doc.add_paragraph()
+
+        # Explanation
+        add_styled_paragraph(doc,
+            "Diagram Explanation: The ER diagrams above illustrate the complete dual-database "
+            "architecture split across two pages for readability. In Figure 1a (PostgreSQL), "
+            "8 tables model the transactional core: users stores authentication credentials with "
+            "bcrypt-hashed passwords, customers holds customer profiles with UUID primary keys, "
+            "products maintains the catalog with CHECK constraints on stock quantities, orders "
+            "records each purchase linked to a customer, and order_items captures individual line "
+            "items with foreign keys to both orders and products. The outbox table serves as a CDC "
+            "event store, order_audit_log tracks every field-level change, and alerts records fraud "
+            "detection results.", size=10)
+
+        add_styled_paragraph(doc,
+            "In Figure 1b (MongoDB), 4 collections implement established NoSQL patterns: "
             "user_sessions uses the Bucket Pattern to accumulate clickstream events via atomic "
             "$push + $inc operations, session_stats provides pre-computed session aggregates "
             "(Computed Pattern), customer_order_summary holds denormalized order data synced via "
             "CDC (CDC Target Pattern), and funnel_metrics caches conversion funnel results (Cached "
-            "Pattern). Relationships are shown as solid blue arrows, triggers as dashed orange "
-            "arrows, and the CDC sync flow as a purple arrow.", size=10)
+            "Pattern). The CDC sync box details the 4-step Outbox Pattern flow from PostgreSQL "
+            "trigger to MongoDB atomic update every 5 seconds.", size=10)
         doc.add_paragraph()
 
     add_heading_styled(doc, "3.1 Schema (8 Tables)", 2)

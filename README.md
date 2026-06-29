@@ -58,6 +58,15 @@ This starts all 4 containers:
 
 > **The data loader runs automatically on first start!** It loads 6 CSV files (20k customers, 1.2k products, 53k orders, 120k clickstream events) into both databases. It exits when done. To skip it on subsequent runs, comment out the `data-loader` section in `docker-compose.yml`.
 
+### Dataset Sources
+
+| Dataset | Kaggle Link | Records Used |
+|---------|------------|-------------|
+| E-commerce Clickstream and Transaction Dataset | [waqi786](https://www.kaggle.com/datasets/waqi786/e-commerce-clickstream-and-transaction-dataset) | ~200,000 events |
+| Synthetic E-commerce Transactions + Clickstream 2020–2025 | [wafaaelhusseini](https://www.kaggle.com/datasets/wafaaelhusseini/e-commerce-transactions-clickstream) | ~75,000 transactions |
+
+Combined into 6 CSV files in `data/`: `customers.csv`, `products.csv`, `orders.csv`, `order_items.csv`, `clickstream_events.csv`, `sessions.csv` — totaling ~275,000 rows.
+
 ### Load Sample Data (Manual — only if you skipped the auto-loader)
 
 ```bash
