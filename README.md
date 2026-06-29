@@ -72,7 +72,17 @@ docker exec -it ecommerce-backend python data_loader.py
 | http://localhost:8000/docs | **Swagger UI** — interactive API documentation |
 | http://localhost:8000/ | **API root** — health check |
 
-### 🔄 Reset Databases (Fresh Start)
+### � Default Credentials
+
+| Role | Username | Password | How to get |
+|------|----------|----------|------------|
+| **Admin** | Register any account, then promote: `docker exec ecommerce-backend python promote_admin.py <username>` | — | Or use a pre-promoted account from test suite |
+| **Customer** | Register at `/login` | — | Create your own account |
+| **Legacy** | `user_1` | `password123` | From data loader (customer role only) |
+
+> ⚠️ Legacy accounts from the data loader have **customer** role by default. To access the **Admin Dashboard**, register a new account and promote it to admin using the command above.
+
+### �🔄 Reset Databases (Fresh Start)
 
 Wipe all data and start clean — useful for demos or troubleshooting:
 
