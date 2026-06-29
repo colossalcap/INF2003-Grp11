@@ -50,15 +50,15 @@ This starts all 4 containers:
 | `ecommerce-mongodb` | MongoDB 7 | `27017` | BASE analytics — clickstream, sessions, funnel |
 | `ecommerce-backend` | FastAPI (Python 3.11) | `8000` | REST API + Swagger docs |
 | `ecommerce-frontend` | React (Vite) | `3000` | Product catalog, cart, admin dashboard |
+| `ecommerce-data-loader` | Python (one-shot) | — | Auto-loads CSV data into both databases, then exits |
 
-### Load Sample Data
+> **The data loader runs automatically on first start!** It loads 6 CSV files (20k customers, 1.2k products, 53k orders, 120k clickstream events) into both databases. It exits when done. To skip it on subsequent runs, comment out the `data-loader` section in `docker-compose.yml`.
+
+### Load Sample Data (Manual — only if you skipped the auto-loader)
 
 ```bash
-docker exec -it ecommerce-backend bash
-python data_loader.py
+docker exec -it ecommerce-backend python data_loader.py
 ```
-
-Loads 6 CSV files (20k customers, 1.2k products, 53k orders, 120k clickstream events) into both databases.
 
 ### Access the Application
 
@@ -67,6 +67,26 @@ Loads 6 CSV files (20k customers, 1.2k products, 53k orders, 120k clickstream ev
 | http://localhost:3000 | **Frontend** — browse products, manage cart, view analytics |
 | http://localhost:8000/docs | **Swagger UI** — interactive API documentation |
 | http://localhost:8000/ | **API root** — health check |
+
+### 🔄 Reset Databases (Fresh Start)
+
+Wipe all data and start clean — useful for demos or troubleshooting:
+
+```bash
+# 1. Stop everything
+docker-compose down
+
+# 2. Wipe both databases
+docker-compose --profile reset up reset-db
+
+# 3. Start fresh (auto-loads data)
+docker-compose up
+```
+
+Or as a one-liner:
+```bash
+docker-compose down && docker-compose --profile reset up reset-db && docker-compose up
+```
 
 ---
 

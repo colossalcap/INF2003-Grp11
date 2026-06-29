@@ -82,6 +82,57 @@ services:
     volumes:
       - ./frontend/src:/app/src
 
+  # ============================================================
+  # Data Loader — One-shot service that loads CSV data into
+  # both databases, then exits. Comment this out after the
+  # first run if you don't need fresh data every time.
+  # ============================================================
+  data-loader:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ecommerce-data-loader
+    environment:
+      DATABASE_URL: postgresql://ecommerce_user:ecommerce_pass@postgres:5432/ecommerce_db
+      MONGO_URI: mongodb://mongodb:27017
+      MONGO_DB: ecommerce_nosql
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - ./data:/data
+    command: python data_loader.py
+    restart: "no"
+
+  # ============================================================
+  # DB Reset — One-shot service that wipes ALL data from both
+  # databases. Run explicitly with:
+  #   docker-compose --profile reset up reset-db
+  # ============================================================
+  reset-db:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ecommerce-reset-db
+    profiles:
+      - reset
+    environment:
+      DATABASE_URL: postgresql://ecommerce_user:ecommerce_pass@postgres:5432/ecommerce_db
+      MONGO_URI: mongodb://mongodb:27017
+      MONGO_DB: ecommerce_nosql
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    command: python reset_db.py
+    restart: "no"
+
 volumes:
   postgres_data:
   mongo_data:

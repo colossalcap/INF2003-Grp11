@@ -133,11 +133,18 @@ The first time you run this, Docker will download everything it needs (this migh
 
 When it's done, you'll see messages like:
 ```
-ecommerce-postgres   | database system is ready to accept connections
-ecommerce-mongodb    | Waiting for connections
-ecommerce-backend    | 🚀 Starting E-Commerce Analytics Platform...
-ecommerce-frontend   | ➜ Local: http://localhost:3000/
+ecommerce-postgres     | database system is ready to accept connections
+ecommerce-mongodb      | Waiting for connections
+ecommerce-data-loader  | Loading customers → PostgreSQL ... 20000 loaded
+ecommerce-data-loader  | Loading products → PostgreSQL ... 1197 loaded
+ecommerce-data-loader  | Loading orders → PostgreSQL ... 53000 loaded
+ecommerce-data-loader  | Loading clickstream → MongoDB ... 120000 loaded
+ecommerce-data-loader exited with code 0  ← Done loading!
+ecommerce-backend      | 🚀 Starting E-Commerce Analytics Platform...
+ecommerce-frontend     | ➜ Local: http://localhost:3000/
 ```
+
+> The `ecommerce-data-loader` runs once, loads all the data into both databases, then exits. It takes 1-2 minutes. The website won't show products until it finishes!
 
 ### Step 4: Open the Website
 
@@ -147,7 +154,7 @@ Open your web browser (Chrome, Edge, Firefox) and go to:
 http://localhost:3000
 ```
 
-You should see the online store! 🎉
+You should see the online store with 1,197 products! 🎉
 
 > **Also check out:** `http://localhost:8000/docs` — this is the automatic API documentation. It lists every feature our backend supports, and you can even test them right there in the browser!
 
@@ -161,6 +168,10 @@ To start again later, just run `docker-compose up` again — it will be much fas
 
 ## 5. Loading the Sample Data
 
+**Good news — this now happens automatically!** 🎉
+
+When you run `docker-compose up`, a special one-shot container called `data-loader` starts up right after the databases are ready. It automatically loads all the CSV files and then exits. You'll see its progress in the terminal output.
+
 The project comes with real-world-style data in CSV files (spreadsheet-like files) inside the `data/` folder:
 
 | File | Contains | How Many |
@@ -172,17 +183,15 @@ The project comes with real-world-style data in CSV files (spreadsheet-like file
 | `clickstream_events.csv` | Page views & cart actions | ~120,000 |
 | `sessions.csv` | User browsing sessions | ~27,500 |
 
-To load all this data into the databases:
+> **What does this do?** The `data_loader.py` program reads each CSV file and inserts the data into the correct database — customer and product info goes to PostgreSQL, clickstream events go to MongoDB. It takes about 1-2 minutes to complete. You can watch its progress in the `docker-compose up` terminal output.
+
+**If you ever need to reload the data manually** (or if you skipped the auto-loader by commenting it out):
 
 ```bash
-# Step 1: Open a terminal inside the running backend container
-docker exec -it ecommerce-backend bash
-
-# Step 2: Run the data loader
-python data_loader.py
+docker exec -it ecommerce-backend python data_loader.py
 ```
 
-> **What does this do?** The `data_loader.py` program reads each CSV file and inserts the data into the correct database — customer and product info goes to PostgreSQL, clickstream events go to MongoDB. It takes about 1-2 minutes to complete.
+> **Tip for returning users:** After your first `docker-compose up`, the data is already loaded. On subsequent starts, you can skip the data loader by commenting out the `data-loader` section in `docker-compose.yml` (add a `#` at the start of each line). This makes startup much faster.
 
 You'll see progress messages as it loads. When it's done, the website will show real products and the analytics charts will have data to display!
 
@@ -505,12 +514,20 @@ A: Make sure you've registered first. If the data loader ran, try username `admi
 A: Only admin users can access it. Your account has the "customer" role. Create a new account and ask your team lead to promote it to admin, or use an existing admin account from the data loader.
 
 **Q: How do I reset everything and start over?**
-A: Run these commands:
+A: You have two options:
+
+**Option 1: Reset databases only (keeps Docker images, faster)**
+```bash
+docker-compose down                      # Stop everything
+docker-compose --profile reset up reset-db   # Wipe both databases
+docker-compose up                        # Fresh start (auto-loads data)
+```
+
+**Option 2: Nuclear reset (wipes everything including Docker volumes)**
 ```bash
 docker-compose down -v    # Stop everything and delete all data
-docker-compose up         # Start fresh
+docker-compose up         # Start fresh (auto-loads data)
 ```
-Then reload the data with `python data_loader.py`.
 
 **Q: The tests fail with "Connection refused."**
 A: Make sure `docker-compose up` is running in another terminal first. The tests need the backend to be running.
