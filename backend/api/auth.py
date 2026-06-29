@@ -14,7 +14,7 @@ from passlib.context import CryptContext
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from models.relational import get_db, User
+from models.relational import get_db, User, Customer
 from config import settings
 
 router = APIRouter()
@@ -69,10 +69,11 @@ async def get_current_user(
 
     try:
         payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-        user_id: int = payload.get("sub")
-        if user_id is None:
+        sub = payload.get("sub")
+        if sub is None:
             raise credentials_exception
-    except JWTError:
+        user_id = int(sub)
+    except (JWTError, ValueError):
         raise credentials_exception
 
     user = db.query(User).filter(User.user_id == user_id).first()
@@ -95,6 +96,14 @@ async def get_admin_user(current_user: User = Depends(get_current_user)) -> User
 @router.post("/register", response_model=TokenResponse)
 async def register(user_data: UserRegister, db: Session = Depends(get_db)):
     """Register a new user account."""
+    # Validate input
+    if not user_data.username or len(user_data.username) < 3:
+        raise HTTPException(status_code=400, detail="Username must be at least 3 characters.")
+    if not user_data.email or '@' not in user_data.email or '.' not in user_data.email.split('@')[-1]:
+        raise HTTPException(status_code=400, detail="Please enter a valid email address.")
+    if len(user_data.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters.")
+
     # Check uniqueness
     if db.query(User).filter(User.username == user_data.username).first():
         raise HTTPException(status_code=400, detail="Username already taken.")
@@ -114,8 +123,18 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
 
-    # Generate token
-    token = create_access_token({"sub": user.user_id})
+    # Auto-create a Customer record linked to this user for order placement
+    import uuid
+    customer = Customer(
+        customer_id=str(uuid.uuid4()),
+        country_code="XX",
+        opt_in_status=True,
+    )
+    db.add(customer)
+    db.commit()
+
+    # Generate token (sub must be a string for python-jose)
+    token = create_access_token({"sub": str(user.user_id)})
 
     return TokenResponse(
         access_token=token,
@@ -143,7 +162,7 @@ async def login(
             detail="Invalid username or password.",
         )
 
-    token = create_access_token({"sub": user.user_id})
+    token = create_access_token({"sub": str(user.user_id)})
 
     return TokenResponse(
         access_token=token,

@@ -26,7 +26,8 @@ export default function Login({ onLogin }) {
       } else {
         const data = await api.login(username, password)
         onLogin(data.access_token, data.user)
-        navigate('/')
+        // Navigate client-side (no full reload — preserves state)
+        navigate(data.user.role === 'admin' ? '/admin' : '/')
       }
     } catch (err) {
       setError(err.response?.data?.detail || 'An error occurred.')

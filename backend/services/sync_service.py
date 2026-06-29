@@ -7,7 +7,6 @@ and synchronizes data to MongoDB (customer_order_summary).
 """
 
 import asyncio
-import json
 from datetime import datetime
 from typing import Optional
 
@@ -62,30 +61,46 @@ async def _process_outbox_loop():
 async def process_outbox_batch(batch_size: int = 50):
     """
     Fetch and process a batch of unprocessed outbox events.
-    For each 'order_created' event, update the customer_order_summary
-    in MongoDB to demonstrate CDC synchronization.
+    Runs the synchronous DB query in a thread executor to avoid blocking the async event loop.
     """
-    db = SessionLocal()
-    try:
-        # Fetch unprocessed events
-        events = (
-            db.query(Outbox)
-            .filter(Outbox.processed == False)
-            .order_by(Outbox.created_at.asc())
-            .limit(batch_size)
-            .all()
-        )
+    import asyncio
+    loop = asyncio.get_running_loop()
 
-        for event in events:
-            await _handle_outbox_event(event)
+    def _fetch_events():
+        db = SessionLocal()
+        try:
+            events = (
+                db.query(Outbox)
+                .filter(Outbox.processed == False)
+                .order_by(Outbox.created_at.asc())
+                .limit(batch_size)
+                .all()
+            )
+            # Detach from session before returning across thread boundary
+            result = []
+            for e in events:
+                result.append({
+                    "event": e,
+                    "event_type": e.event_type,
+                    "payload": dict(e.payload) if e.payload else {},
+                })
+            return result, db
+        except Exception:
+            db.close()
+            raise
+
+    events_data, db = await loop.run_in_executor(None, _fetch_events)
+    try:
+        for ed in events_data:
+            await _handle_outbox_event(ed["event"])
 
             # Mark as processed
-            event.processed = True
+            ed["event"].processed = True
 
         db.commit()
 
-        if events:
-            print(f"[OUTBOX] Processed {len(events)} outbox events.")
+        if events_data:
+            print(f"[OUTBOX] Processed {len(events_data)} outbox events.")
 
     finally:
         db.close()

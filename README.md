@@ -54,7 +54,7 @@
 ### One-Command Start
 
 ```bash
-cd inf2003-ecommerce
+cd INF2003-Grp11
 docker-compose up
 ```
 
@@ -192,7 +192,7 @@ Results are plotted to `backend/benchmark/plots/benchmark_results.png`.
 ## Project Structure
 
 ```
-inf2003-ecommerce/
+INF2003-Grp11/
 ├── docker-compose.yml          # One-command startup
 ├── .env.example                # Environment variable template
 ├── README.md

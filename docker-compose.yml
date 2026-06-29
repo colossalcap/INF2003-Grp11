@@ -65,6 +65,7 @@ services:
     volumes:
       - ./backend:/app
       - ./data:/data
+      - ./backend/benchmark/plots:/app/benchmark/plots
 
   # ============================================================
   # React Frontend (Vite)

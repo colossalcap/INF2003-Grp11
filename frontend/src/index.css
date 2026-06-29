@@ -11,10 +11,14 @@ a:hover { text-decoration: underline; }
 .navbar {
   background: #1a1a2e; color: white; padding: 0.75rem 1.5rem;
   display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap;
 }
-.navbar h1 { font-size: 1.25rem; }
-.navbar nav a { color: #ccc; margin-left: 1rem; }
-.navbar nav a:hover { color: white; text-decoration: none; }
+.navbar h1 { font-size: 1.2rem; white-space: nowrap; }
+.navbar a {
+  color: #ccc; text-decoration: none; font-size: 0.9rem;
+  white-space: nowrap;
+}
+.navbar a:hover { color: white; text-decoration: none; }
 .card {
   background: white; border-radius: 8px; padding: 1.25rem;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1rem;

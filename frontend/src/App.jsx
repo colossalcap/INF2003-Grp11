@@ -41,25 +41,49 @@ function App() {
     <BrowserRouter>
       <nav className="navbar">
         <Link to="/" style={{ color: 'white', textDecoration: 'none' }}>
-          <h1>📊 E-Commerce Analytics</h1>
+          <h1>E-Commerce Analytics</h1>
         </Link>
-        <nav>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
           <Link to="/">Products</Link>
+
           {user ? (
             <>
               <Link to="/cart">Cart</Link>
               {user.role === 'admin' && <Link to="/admin">Admin</Link>}
-              <span style={{ color: '#aaa', marginLeft: '1rem' }}>
+
+              {/* Divider */}
+              <span style={{ color: '#555', margin: '0 0.5rem', fontSize: '1.2rem' }}>|</span>
+
+              {/* User info */}
+              <span style={{
+                background: '#2d6a4f', color: 'white', padding: '0.25rem 0.6rem',
+                borderRadius: '4px', fontSize: '0.85rem', fontWeight: 500
+              }}>
                 {user.display_name || user.username}
               </span>
-              <a href="#" onClick={handleLogout} style={{ marginLeft: '0.5rem' }}>
+
+              {/* Logout button */}
+              <button onClick={handleLogout} style={{
+                marginLeft: '0.3rem', background: '#c62828', color: 'white',
+                border: 'none', borderRadius: '4px', padding: '0.25rem 0.6rem',
+                cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600
+              }}>
                 Logout
-              </a>
+              </button>
             </>
           ) : (
-            <Link to="/login">Login</Link>
+            <>
+              <span style={{ color: '#666', margin: '0 0.3rem', fontSize: '1.2rem' }}>|</span>
+              <Link to="/login">Login</Link>
+              <Link to="/login" style={{
+                marginLeft: '0.3rem', background: '#1976d2', color: 'white',
+                padding: '0.25rem 0.6rem', borderRadius: '4px', fontSize: '0.85rem'
+              }}>
+                Register
+              </Link>
+            </>
           )}
-        </nav>
+        </div>
       </nav>
 
       <div className="container">

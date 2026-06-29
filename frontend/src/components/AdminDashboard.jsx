@@ -22,6 +22,7 @@ export default function AdminDashboard({ user }) {
       return
     }
     loadAll()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
   const loadAll = async () => {

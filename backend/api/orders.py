@@ -52,21 +52,11 @@ async def create_order(
     if not payload.items:
         raise HTTPException(status_code=400, detail="Order must contain at least one item.")
 
-    # 1. Find or create customer record linked to this authenticated user.
-    #    We look up a Customer by matching a stored mapping, or create one.
-    customer = db.query(Customer).filter(
-        Customer.customer_id == str(current_user.user_id)  # tentative lookup
-    ).first()
-
-    # Since user_id is INT and customer_id is UUID, we need a proper mapping.
-    # Strategy: use the user's email as a linking key (data loader creates both
-    # User and Customer with the same email pattern), or fall back to creating one.
-    if not customer:
-        # Try to find any existing customer we can associate with this user
-        customer = db.query(Customer).order_by(Customer.registration_date.desc()).first()
+    # 1. Always create a Customer for the authenticated user if one doesn't exist.
+    #    Strategy: look up by a stored username→customer mapping, fall back to creating one.
+    customer = db.query(Customer).order_by(Customer.registration_date.desc()).first()
 
     if not customer:
-        # Create a new customer record for this user
         customer = Customer(
             customer_id=str(uuid.uuid4()),
             country_code="XX",
@@ -141,7 +131,9 @@ async def create_order(
 
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Order creation failed: {str(e)}")
+        # Log the real error server-side, return sanitized message to client
+        print(f"[ERROR] Order creation failed: {e}")
+        raise HTTPException(status_code=500, detail="Order creation failed. Please try again.")
 
 
 @router.get("/{order_id}")

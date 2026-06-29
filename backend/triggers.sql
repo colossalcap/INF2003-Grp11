@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS customers (
 CREATE TABLE IF NOT EXISTS products (
     product_id      VARCHAR(50) PRIMARY KEY,
     category        VARCHAR(100) NOT NULL,
-    unit_price      DECIMAL(10,2) NOT NULL,
+    unit_price      DOUBLE PRECISION NOT NULL,
     stock_quantity  INTEGER NOT NULL CHECK (stock_quantity >= 0)
 );
 
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS orders (
     order_id        UUID PRIMARY KEY,
     customer_id     UUID NOT NULL REFERENCES customers(customer_id),
     order_date      TIMESTAMP DEFAULT NOW(),
-    total_amount    DECIMAL(12,2) DEFAULT 0.0,
+    total_amount    DOUBLE PRECISION DEFAULT 0.0,
     status          VARCHAR(20) DEFAULT 'pending'
 );
 

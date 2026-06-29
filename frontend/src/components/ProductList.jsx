@@ -8,7 +8,8 @@ export default function ProductList({ user }) {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const sessionId = useRef(crypto.randomUUID())
 
@@ -22,12 +23,14 @@ export default function ProductList({ user }) {
 
   const loadProducts = async () => {
     setLoading(true)
+    setError('')
     try {
       const data = await api.getProducts(page, selectedCategory, search)
-      setProducts(data.products)
-      setTotal(data.total)
+      setProducts(data.products || [])
+      setTotal(data.total || 0)
     } catch (err) {
-      console.error(err)
+      console.error('Product load error:', err)
+      setError('Failed to load products. Is the backend running?')
     }
     setLoading(false)
   }
@@ -39,7 +42,7 @@ export default function ProductList({ user }) {
   }
 
   const handleAddToCart = async (productId) => {
-    if (!user) return alert('Please login to add items to cart.')
+    if (!user) { setMessage('Please login to add items to cart.'); setTimeout(() => setMessage(''), 3000); return }
     try {
       const res = await api.recordEvent('add_to_cart', productId, sessionId.current)
       if (res.fraud_alert) {
@@ -55,7 +58,7 @@ export default function ProductList({ user }) {
   }
 
   const handleCheckout = async () => {
-    if (!user) return alert('Please login to checkout.')
+    if (!user) { setMessage('Please login to checkout.'); setTimeout(() => setMessage(''), 3000); return }
     if (products.length === 0) return
 
     try {
@@ -120,6 +123,7 @@ export default function ProductList({ user }) {
         <button type="submit" className="btn btn-primary">Search</button>
       </form>
 
+      {error && <div className="alert alert-danger">{error}</div>}
       {loading ? (
         <div className="loading">Loading products...</div>
       ) : (
@@ -128,7 +132,7 @@ export default function ProductList({ user }) {
             {products.map(p => (
               <div key={p.product_id} className="card" style={{ textAlign: 'center' }}>
                 <h3 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>📦</h3>
-                <h4 style={{ fontSize: '0.95rem', marginBottom: '0.25rem' }}>{p.product_id}</h4>
+                <h4 style={{ fontSize: '0.95rem', marginBottom: '0.25rem' }}>Product #{p.product_id}</h4>
                 <p style={{ color: '#666', fontSize: '0.85rem' }}>{p.category}</p>
                 <p style={{ fontSize: '1.1rem', fontWeight: 600, color: '#2e7d32' }}>
                   ${p.unit_price?.toFixed(2)}
