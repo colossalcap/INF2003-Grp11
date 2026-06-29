@@ -82,31 +82,6 @@ export default function ProductList({ user, cartItems, addToCart }) {
     }
   }
 
-  const handleCheckout = async () => {
-    if (!user) { showToast('Please login to checkout.', 'warning'); return }
-    if (cartItems.length === 0) { showToast('Your cart is empty. Add some products first!', 'warning'); return }
-
-    try {
-      const items = cartItems.map(item => ({
-        product_id: item.product_id,
-        quantity: item.quantity,
-      }))
-
-      await api.createOrder(items)
-      showToast(`Order placed! ${cartItems.length} items purchased.`, 'success')
-
-      await api.recordEvent('checkout', null, sessionId.current)
-      await api.recordEvent('purchase', null, sessionId.current)
-
-      // Clear local cart
-      cartItems.forEach(item => addToCart(item, -999)) // will be fixed by App clearCart
-      localStorage.removeItem('cart')
-      window.location.reload()
-    } catch (err) {
-      showToast('Checkout failed: ' + (err.response?.data?.detail || err.message), 'error')
-    }
-  }
-
   const totalPages = Math.ceil(total / 20)
 
   return (
@@ -121,11 +96,6 @@ export default function ProductList({ user, cartItems, addToCart }) {
 
       <div className="page-header">
         <h2>Product Catalog</h2>
-        {user && (
-          <button className="btn btn-success" onClick={handleCheckout}>
-            🛒 Checkout ({cartItems.reduce((s,i) => s+i.quantity, 0)} items)
-          </button>
-        )}
       </div>
 
       <form onSubmit={handleSearch} className="search-bar mb-2">
