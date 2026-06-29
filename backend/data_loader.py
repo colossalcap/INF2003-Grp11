@@ -52,10 +52,12 @@ def load_customers_postgres(batch_size: int = 1000):
             # Also create a User for authentication (using customer_id as mapping)
             csv_id = int(row['customer_id'])
             if not db.query(User).filter_by(username=f"user_{csv_id}").first():
+                from passlib.context import CryptContext
+                pwd_ctx = CryptContext(schemes=['bcrypt'], deprecated='auto')
                 user = User(
                     username=f"user_{csv_id}",
                     email=str(row.get("email", f"user{csv_id}@example.com")),
-                    password_hash="$2b$12$LJ3m4ys3GZfnYMz8kVsKaOTSGLkyVlMJ3fSTurNWRfLmRblvOvVRO",  # 'password123'
+                    password_hash=pwd_ctx.hash('password123'),
                     display_name=str(row.get("name", f"User {csv_id}")),
                     role="customer",
                 )
@@ -155,10 +157,12 @@ def load_orders_postgres(batch_size: int = 500):
             # Also create a User record so these customers can log in via JWT
             existing_user = db.query(User).filter_by(username=f"user_{int_cid}").first()
             if not existing_user:
+                from passlib.context import CryptContext as PwdCtx2
+                pwd2 = PwdCtx2(schemes=['bcrypt'], deprecated='auto')
                 user = User(
                     username=f"user_{int_cid}",
                     email=f"user{int_cid}@ecommerce.local",
-                    password_hash="$2b$12$LJ3m4ys3GZfnYMz8kVsKaOTSGLkyVlMJ3fSTurNWRfLmRblvOvVRO",  # 'password123'
+                    password_hash=pwd2.hash('password123'),
                     display_name=f"Customer {int_cid}",
                     role="customer",
                 )
