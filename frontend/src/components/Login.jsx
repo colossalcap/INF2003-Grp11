@@ -1,8 +1,9 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import * as api from '../api'
 
 export default function Login({ onLogin }) {
+  const location = useLocation()
   const [isRegister, setIsRegister] = useState(false)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -11,6 +12,12 @@ export default function Login({ onLogin }) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+
+  // Sync isRegister with the URL query param on every navigation
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    setIsRegister(params.get('register') === 'true')
+  }, [location.search])
 
   const handleSubmit = async (e) => {
     e.preventDefault()

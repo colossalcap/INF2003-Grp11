@@ -134,7 +134,7 @@ function App() {
             <>
               <span style={{ color: '#475569', margin: '0 0.2rem', fontSize: '1.2rem' }}>|</span>
               <Link to="/login">Login</Link>
-              <Link to="/login" className="nav-register-btn">
+              <Link to="/login?register=true" className="nav-register-btn">
                 Register
               </Link>
             </>
