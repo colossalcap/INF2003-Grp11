@@ -1,252 +1,428 @@
 # 🛒 INF2003 Group 11 — E-Commerce Clickstream & Transaction Analytics
 
-**Dual-database analytics platform: PostgreSQL (ACID transactions) + MongoDB (clickstream analytics)**
+<div align="center">
+
+**Dual-Database Analytics Platform — PostgreSQL (ACID) + MongoDB (BASE)**
+
+[![Tests](https://img.shields.io/badge/tests-161%2F161%20passed-brightgreen)](#-test-suite)
+[![Docker](https://img.shields.io/badge/docker-4%20containers-blue)](https://www.docker.com/)
+[![Python](https://img.shields.io/badge/python-3.11+-yellow)](https://www.python.org/)
+[![React](https://img.shields.io/badge/react-18+-61dafb)](https://react.dev/)
+[![INF2003](https://img.shields.io/badge/module-INF2003%20SIT-red)]()
+
+**Group 11 — Team Hanzalians** · Singapore Institute of Technology · June 2026
+
+</div>
 
 ---
 
-## Architecture
+## 📖 Documentation Map
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                     React Frontend (Vite)                         │
-│              Port 3000 — Product Catalog, Cart, Admin             │
-└─────────────────────────────┬────────────────────────────────────┘
-                              │ REST API (JWT)
-┌─────────────────────────────▼────────────────────────────────────┐
-│                   FastAPI Backend (Python 3.11+)                   │
-│                         Port 8000                                  │
-│  ┌───────────┐  ┌──────────────┐  ┌────────────────────────────┐ │
-│  │ Auth API  │  │ Order API    │  │ Analytics API               │ │
-│  │ (JWT)     │  │ (ACID Txns)  │  │ (RFM, Funnel, Mkt Basket)  │ │
-│  └───────────┘  └──────┬───────┘  └────────┬───────────────────┘ │
-│  ┌───────────┐         │                    │                     │
-│  │ Cart API  │         │                    │                     │
-│  │ (MongoDB) │         │                    │                     │
-│  └─────┬─────┘         │                    │                     │
-└────────┼───────────────┼────────────────────┼─────────────────────┘
-         │               │                    │
-┌────────▼───────────────▼────────────────────▼─────────────────────┐
-│                        Data Layer                                  │
-│  ┌──────────────────────┐  ┌──────────────────────────────────┐  │
-│  │  PostgreSQL 15       │  │  MongoDB 7                       │  │
-│  │  ─────────────────── │  │  ─────────────────────────────── │  │
-│  │  • customers         │  │  • user_sessions (Bucket)        │  │
-│  │  • products          │  │  • session_stats (Computed)      │  │
-│  │  • orders            │  │  • customer_order_summary (CDC)  │  │
-│  │  • order_items       │  │  • funnel_metrics (Cached)       │  │
-│  │  • outbox (CDC)      │  │                                   │  │
-│  │  • alerts            │  │                                   │  │
-│  │  • order_audit_log   │  │                                   │  │
-│  │  • users (auth)      │  │                                   │  │
-│  └──────────────────────┘  └──────────────────────────────────┘  │
-│  Triggers: Stock Check, Inventory Deduction, Outbox, Audit        │
-└───────────────────────────────────────────────────────────────────┘
-```
+| Document | Audience | Purpose |
+|----------|----------|---------|
+| **`README.md`** (this file) | Developers & Evaluators | Technical overview, API reference, architecture |
+| **`walkthrough.md`** | Everyone (no coding knowledge needed) | Friendly guide with glossary, analogies, step-by-step instructions |
+| **`docs/ER_Diagram.md`** | Database Designers | Full entity-relationship diagram with relationships |
+| **`docs/G11_Final_Report.md`** | Academic Submission | 8-page final report covering all INF2003 requirements |
+| **`docs/G11_Progress_Report.md`** | Academic Submission | Mid-project progress report |
+
+> **New to this project?** Start with [`walkthrough.md`](walkthrough.md) — it explains everything in plain English with analogies and a glossary.
 
 ---
 
-## Quick Start
+## 🚀 Quick Start
 
 ### Prerequisites
-- Docker Desktop (with Docker Compose)
-- Python 3.11+ (for local development)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop) (includes Docker Compose)
 
-### One-Command Start
+### One Command
 
 ```bash
 cd INF2003-Grp11
 docker-compose up
 ```
 
-This starts:
-- **PostgreSQL** on port `5432` (with triggers auto-loaded)
-- **MongoDB** on port `27017`
-- **Backend API** on port `8000` (Swagger: http://localhost:8000/docs)
-- **Frontend** on port `3000` (http://localhost:3000)
+This starts all 4 containers:
+
+| Container | Technology | Port | Purpose |
+|-----------|-----------|------|---------|
+| `ecommerce-postgres` | PostgreSQL 15 | `5432` | ACID transactions — orders, inventory, customers |
+| `ecommerce-mongodb` | MongoDB 7 | `27017` | BASE analytics — clickstream, sessions, funnel |
+| `ecommerce-backend` | FastAPI (Python 3.11) | `8000` | REST API + Swagger docs |
+| `ecommerce-frontend` | React (Vite) | `3000` | Product catalog, cart, admin dashboard |
 
 ### Load Sample Data
 
 ```bash
-# Connect to the backend container
 docker exec -it ecommerce-backend bash
-
-# Run the data loader
 python data_loader.py
 ```
 
-This loads the CSV files from `data/` into both databases:
-- `customers.csv` → PostgreSQL `customers`
-- `products.csv` → PostgreSQL `products`
-- `orders.csv` + `order_items.csv` → PostgreSQL `orders` + `order_items`
-- `events.csv` → MongoDB `user_sessions` (Bucket Pattern)
+Loads 6 CSV files (20k customers, 1.2k products, 53k orders, 120k clickstream events) into both databases.
+
+### Access the Application
+
+| URL | What |
+|-----|------|
+| http://localhost:3000 | **Frontend** — browse products, manage cart, view analytics |
+| http://localhost:8000/docs | **Swagger UI** — interactive API documentation |
+| http://localhost:8000/ | **API root** — health check |
 
 ---
 
-## API Endpoints
+## 🏗️ Architecture
 
-### Authentication
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/auth/register` | Register new user |
-| `POST` | `/api/auth/login` | Login (returns JWT) |
-| `GET` | `/api/auth/me` | Get current user |
+```
+                    ┌──────────────────────────┐
+                    │   React Frontend (Vite)   │
+                    │        Port 3000           │
+                    │  Catalog │ Cart │ Admin    │
+                    └────────────┬───────────────┘
+                                 │ REST (JWT Auth)
+                    ┌────────────▼───────────────┐
+                    │   FastAPI Backend (Python)  │
+                    │        Port 8000            │
+                    │                             │
+                    │  POST /api/auth/*     Auth  │
+                    │  GET  /api/products/*  Cat  │
+                    │  POST /api/cart/*     Cart  │
+                    │  POST /api/orders/*   Order │
+                    │  GET  /api/analytics/* Stats│
+                    └──────┬──────────┬───────────┘
+                           │          │
+              SQLAlchemy   │          │  Motor (async)
+              (ORM)        │          │
+                    ┌──────▼────┐ ┌──▼───────────┐
+                    │ PostgreSQL│ │   MongoDB     │
+                    │  :5432    │ │   :27017      │
+                    │           │ │               │
+                    │ 8 Tables  │ │ 4 Collections │
+                    │ 4 Triggers│ │ 4 Patterns    │
+                    │ ACID      │ │ BASE          │
+                    └──────┬────┘ └───────────────┘
+                           │
+                   Outbox  │ CDC (async poller)
+                   Pattern │
+                           ▼
+                    ┌──────────────────────────────┐
+                    │  customer_order_summary       │
+                    │  (MongoDB — denormalized view) │
+                    └──────────────────────────────┘
+```
 
-### Products
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/products/` | List products (pagination, category filter) |
-| `GET` | `/api/products/{id}` | Get product details |
-| `GET` | `/api/products/categories/all` | List all categories |
+**Data Routing:**
+- **Browsing data** (page views, cart actions) → MongoDB — Bucket Pattern, near O(1) insert
+- **Purchase data** (orders, payments) → PostgreSQL — full ACID with trigger cascade
+- **CDC Bridge** — Outbox Pattern: PostgreSQL trigger → async poller → MongoDB sync
+- **Fraud Detection** — MongoDB session velocity check → PostgreSQL alerts insertion
 
-### Cart & Clickstream (MongoDB)
+---
+
+## 📊 Database Design
+
+### PostgreSQL — Relational (8 Tables, ACID)
+
+| Table | Row Count | Key Features |
+|-------|-----------|-------------|
+| `users` | ~20,000 | JWT auth, bcrypt passwords, admin/customer roles |
+| `customers` | ~20,000 | UUID PK, country_code, opt-in status |
+| `products` | 1,197 | 7 categories, CHECK(stock_quantity >= 0), indexed by category |
+| `orders` | ~53,000 | FK → customers, status tracking, total_amount |
+| `order_items` | ~75,000 | FK → orders + products, triggers fire here |
+| `outbox` | dynamic | CDC event store, JSONB payload, processed flag |
+| `order_audit_log` | dynamic | Full change history (trigger-populated) |
+| `alerts` | dynamic | Fraud detection results, acknowledged flag |
+
+**Relationships:** customers 1:M orders, orders 1:M order_items, products 1:M order_items
+
+### MongoDB — NoSQL (4 Collections, BASE)
+
+| Collection | Pattern | Document Count | Purpose |
+|------------|---------|---------------|---------|
+| `user_sessions` | **Bucket** | ~27,500 | Accumulates clickstream events via `$push` + `$inc` |
+| `session_stats` | **Computed** | ~27,500 | Pre-aggregated session summaries |
+| `customer_order_summary` | **CDC Target** | sync'd | Denormalized view from PostgreSQL via Outbox |
+| `funnel_metrics` | **Cached** | on-demand | Aggregated conversion funnel results |
+
+**Indexes:** Compound (customer_id, session_id), TTL (end_time, 30-day expiry), flagged, events.timestamp
+
+---
+
+## ⚡ PostgreSQL Triggers (4)
+
+| # | Trigger | Event | Function |
+|---|---------|-------|----------|
+| 1 | `trg_check_stock` | BEFORE INSERT on order_items | Raises exception if stock insufficient |
+| 2 | `trg_deduct_inventory` | AFTER INSERT on order_items | Decrements product stock_quantity |
+| 3 | `trg_outbox_order` | AFTER INSERT on orders | Writes JSON event to outbox for CDC |
+| 4 | `trg_audit_order` | AFTER UPDATE on orders | Logs old/new values to order_audit_log |
+
+All triggers auto-deploy via `triggers.sql` mounted to `/docker-entrypoint-initdb.d/`.
+
+---
+
+## 📡 API Reference
+
+### Authentication (JWT)
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/api/auth/register` | None | Register new user → returns JWT |
+| `POST` | `/api/auth/login` | None | OAuth2 login → returns JWT |
+| `GET` | `/api/auth/me` | Bearer | Get current user profile |
+
+**Request examples:**
+```bash
+# Register
+curl -X POST http://localhost:8000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"john","email":"john@test.com","password":"secret123","display_name":"John"}'
+
+# Login
+curl -X POST http://localhost:8000/api/auth/login \
+  -d "grant_type=password&username=john&password=secret123"
+```
+
+### Products (Public)
+
+| Method | Endpoint | Params | Description |
+|--------|----------|--------|-------------|
+| `GET` | `/api/products/` | `page`, `limit`, `category`, `search` | Paginated product list |
+| `GET` | `/api/products/{id}` | — | Single product detail |
+| `GET` | `/api/products/categories/all` | — | Distinct categories (7) |
+
+### Cart & Clickstream (Auth Required)
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `POST` | `/api/cart/event` | Record clickstream event (Bucket Pattern) |
-| `GET` | `/api/cart/session/{id}` | Get session events |
+| `GET` | `/api/cart/session/{id}` | Get all events for a session |
 
-### Orders (PostgreSQL)
+**Event types:** `page_view`, `add_to_cart`, `checkout`, `purchase`
+
+### Orders (Auth Required, ACID)
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/orders/` | Create order (ACID transaction) |
-| `GET` | `/api/orders/{id}` | Get order with items |
-| `GET` | `/api/orders/` | List recent orders |
+| `POST` | `/api/orders/` | Create order (triggers cascade: stock check → deduction → outbox) |
+| `GET` | `/api/orders/{id}` | Get order with line items |
+| `GET` | `/api/orders/` | List recent orders (paginated) |
 
-### Analytics
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/analytics/rfm` | RFM segmentation (SQL CTEs + NTILE) |
-| `GET` | `/api/analytics/market-basket` | Market basket analysis (self-join) |
-| `GET` | `/api/analytics/funnel` | Funnel analytics (MongoDB $facet) |
-| `GET` | `/api/analytics/cart-abandonment` | Cart abandonment detection |
-| `GET` | `/api/analytics/alerts` | Fraud alerts (admin only) |
-| `GET` | `/api/analytics/audit/{order_id}` | Order audit trail (admin only) |
-| `GET` | `/api/analytics/top-products` | Top-selling products |
-| `GET` | `/api/analytics/sales-by-category` | Sales by category |
+### Analytics (Auth Required)
 
----
+| Method | Endpoint | DB | Technique |
+|--------|----------|----|-----------|
+| `GET` | `/api/analytics/rfm` | PostgreSQL | CTE + NTILE(4) → Champions/Loyal/At Risk/Lost |
+| `GET` | `/api/analytics/market-basket?top_n=10` | PostgreSQL | Self-join on order_items |
+| `GET` | `/api/analytics/funnel` | MongoDB | `$facet` aggregation pipeline |
+| `GET` | `/api/analytics/cart-abandonment` | MongoDB | Aggregation: add_to_cart without checkout |
+| `GET` | `/api/analytics/top-products?limit=10` | PostgreSQL | GROUP BY + ORDER BY total_sold |
+| `GET` | `/api/analytics/sales-by-category` | PostgreSQL | GROUP BY category |
+| `GET` | `/api/analytics/alerts` 🔒 | Both | Fraud alerts (admin only) |
+| `GET` | `/api/analytics/audit/{order_id}` 🔒 | PostgreSQL | Order change history (admin only) |
 
-## Advanced Features Location
-
-| Feature | File | Line/Function |
-|---------|------|---------------|
-| **Stock Check Trigger** | `backend/triggers.sql` | `check_stock_before_order()` |
-| **Inventory Deduction Trigger** | `backend/triggers.sql` | `deduct_inventory_after_order()` |
-| **Outbox Trigger (CDC)** | `backend/triggers.sql` | `outbox_on_order_created()` |
-| **Audit Trigger** | `backend/triggers.sql` | `audit_order_status_change()` |
-| **RFM Segmentation** | `backend/services/relational_service.py` | `compute_rfm_segmentation()` |
-| **Market Basket Analysis** | `backend/services/relational_service.py` | `compute_market_basket()` |
-| **Session Funnel** | `backend/services/nosql_service.py` | `compute_funnel_metrics()` |
-| **Fraud Detection** | `backend/services/nosql_service.py` | `check_fraud_alert()` |
-| **Outbox Processor (CDC)** | `backend/services/sync_service.py` | `process_outbox_batch()` |
-| **Bucket Pattern** | `backend/services/nosql_service.py` | `track_clickstream_event()` |
-| **Computed Pattern** | `backend/services/nosql_service.py` | `compute_session_stats()` |
-| **Data Loader** | `backend/data_loader.py` | `run_data_loader()` |
-| **Benchmark Suite** | `backend/benchmark/benchmark_runner.py` | `run_all_benchmarks()` |
+🔒 = Admin role required
 
 ---
 
-## Database Design
+## 🧪 Test Suite
 
-### PostgreSQL — Relational (ACID)
+**161 automated tests** covering every feature. All passing as of last run.
 
-| Table | Purpose | Key Features |
-|-------|---------|-------------|
-| `customers` | Customer profiles | UUID PK, country_code |
-| `products` | Product catalog | CHECK stock_quantity >= 0 |
-| `orders` | Order headers | FK to customers, status tracking |
-| `order_items` | Line items | FK to orders + products, triggers fire |
-| `outbox` | CDC event store | JSONB payload, processed flag |
-| `alerts` | Fraud alerts | Linked to customers |
-| `order_audit_log` | Change history | Populated by audit trigger |
-| `users` | Auth accounts | Hashed passwords, JWT tokens |
+```bash
+docker exec -it ecommerce-backend python tests/test_suite.py
+```
 
-### MongoDB — NoSQL (BASE)
+| Section | Tests | Coverage |
+|---------|-------|----------|
+| Health Checks | 7 | Root, health, Swagger, OpenAPI schema |
+| Authentication | 12 | Register, login, /me, duplicates, bad passwords, invalid tokens |
+| Products | 30 | List, pagination, category filter, search, get by ID, 404, categories |
+| Cart/Clickstream | 16 | All 4 event types, invalid inputs, session retrieval, auto-ID |
+| Orders (ACID) | 18 | Create, get, list, stock rejection, inventory deduction trigger, outbox |
+| Analytics | 24 | RFM, market basket, funnel, cart abandonment, top products, sales |
+| Admin Analytics | 7 | Alerts (admin/non-admin), audit trail (admin/non-admin/unauth) |
+| Trigger Verification | 10 | All 4 functions + table attachments + CHECK constraint |
+| MongoDB Verification | 10 | 4 collections, compound index, TTL, flagged, timestamp indexes |
+| Error Handling | 6 | Empty body, short username, invalid email, short password, 404, bad pagination |
 
-| Collection | Pattern | Purpose |
-|------------|---------|---------|
-| `user_sessions` | **Bucket** | Accumulates clickstream events, updates via `$push` + `$inc` |
-| `session_stats` | **Computed** | Pre-aggregated session summary |
-| `customer_order_summary` | **CDC Target** | Denormalized view synced from PostgreSQL via Outbox |
-| `funnel_metrics` | **Cached** | Aggregated conversion funnel results |
+Example output:
+```
+  ✅ Passed:  161/161
+  ❌ Failed:  0/161
+  ⏱️  Time:    7.08s
+  🎉 ALL TESTS PASSED!
+```
 
 ---
 
-## Benchmarking
+## ⚡ Benchmark Suite
 
-Run the benchmark suite:
+Performance comparison between PostgreSQL and MongoDB:
 
 ```bash
 docker exec -it ecommerce-backend python benchmark/benchmark_runner.py
 ```
 
-This measures:
-1. **MongoDB Bulk Insert** — 10k clickstream events via Bucket Pattern
-2. **PostgreSQL Hotspot** — Concurrent UPDATEs under contention (200 txns)
-3. **PostgreSQL 5-Table JOIN** — Orders + Customers + Items + Products
-4. **MongoDB Aggregation** — $unwind + $group equivalent
+| Benchmark | DB | Operation | Metric |
+|-----------|----|-----------|--------|
+| Bulk Insert | MongoDB | 10k clickstream events (Bucket Pattern) | ops/sec |
+| Hotspot Contention | PostgreSQL | 200 concurrent UPDATEs | latency |
+| 5-Table JOIN | PostgreSQL | Orders + Customers + Items + Products | query time |
+| Aggregation Pipeline | MongoDB | $unwind + $group equivalent | query time |
 
-Results are plotted to `backend/benchmark/plots/benchmark_results.png`.
+Results plotted to `backend/benchmark/plots/benchmark_results.png`.
 
 ---
 
-## Project Structure
+## 🔑 Key Features Summary
+
+| # | Feature | Implementation | INF2003 Req |
+|---|---------|---------------|-------------|
+| 1 | **Dual-database architecture** | PostgreSQL (ACID) + MongoDB (BASE) | Req 1, 3 |
+| 2 | **≥3 tables, multiple relationships** | 8 tables, 1:M relationships | Req 3 |
+| 3 | **ER Diagram** | `docs/ER_Diagram.md` | Req 3 |
+| 4 | **CRUD on both DBs** | Products, orders, events, sessions | Req 4 |
+| 5 | **Nested queries** | RFM CTEs, market basket self-join | Req 5 |
+| 6 | **4 database triggers** | Stock, inventory, outbox, audit | Req 5 |
+| 7 | **CDC / Outbox Pattern** | PostgreSQL → async poller → MongoDB | Req 5 |
+| 8 | **NoSQL design patterns** | Bucket, Computed, CDC Target, Cached | Req 3 |
+| 9 | **GenAI integration** | Documented in Final Report | Req 6 |
+| 10 | **Performance analysis** | Benchmark suite with plots | Req 7 (opt) |
+| 11 | **Web application** | React + Vite + Recharts + JWT | Req 8 (opt) |
+| 12 | **Fraud detection** | MongoDB velocity check → PostgreSQL alert | Bonus |
+| 13 | **Test suite** | 161 automated tests | Bonus |
+| 14 | **Comprehensive docs** | README + walkthrough + ER diagram + reports | Bonus |
+
+---
+
+## 📁 Project Structure
 
 ```
 INF2003-Grp11/
-├── docker-compose.yml          # One-command startup
-├── .env.example                # Environment variable template
-├── README.md
-├── data/                       # CSV datasets
-│   ├── customers.csv
-│   ├── products.csv
-│   ├── orders.csv
-│   ├── order_items.csv
-│   ├── clickstream_events.csv
-│   └── sessions.csv
-├── backend/
+├── docker-compose.yml              ← One-command full-stack startup
+├── README.md                       ← This file — technical overview
+├── walkthrough.md                  ← Friendly guide for non-programmers
+│
+├── data/                           ← CSV datasets (~275k rows total)
+│   ├── customers.csv               (20k rows)
+│   ├── products.csv                (1.2k rows)
+│   ├── orders.csv                  (53k rows)
+│   ├── order_items.csv             (75k rows)
+│   ├── clickstream_events.csv      (120k rows)
+│   └── sessions.csv                (27.5k rows)
+│
+├── backend/                        ← FastAPI application
 │   ├── Dockerfile
 │   ├── requirements.txt
-│   ├── main.py                 # FastAPI entry point
-│   ├── config.py               # Environment-based config
-│   ├── triggers.sql            # PostgreSQL triggers
-│   ├── data_loader.py          # CSV → DB loader
-│   ├── models/
-│   │   ├── relational.py       # SQLAlchemy ORM models
-│   │   └── nosql_schemas.py    # Pydantic MongoDB models
-│   ├── api/
-│   │   ├── auth.py             # JWT auth endpoints
-│   │   ├── products.py         # Product catalog
-│   │   ├── cart.py             # Clickstream + fraud detection
-│   │   ├── orders.py           # Order creation (transactions)
-│   │   └── analytics.py        # RFM, funnel, basket, audit
-│   ├── services/
-│   │   ├── relational_service.py  # Complex SQL queries
-│   │   ├── nosql_service.py       # MongoDB operations
-│   │   └── sync_service.py        # Outbox/CDC processor
-│   └── benchmark/
-│       ├── benchmark_runner.py    # Performance test suite
-│       └── plots/                 # Generated charts
-└── frontend/
-    ├── Dockerfile
-    ├── package.json
-    ├── vite.config.js
-    └── src/
-        ├── App.jsx
-        ├── api.js                # Backend API client
-        ├── index.css
-        └── components/
-            ├── Login.jsx
-            ├── ProductList.jsx
-            ├── Cart.jsx
-            └── AdminDashboard.jsx
+│   ├── main.py                     ← Entry point + lifespan hooks
+│   ├── config.py                   ← Env-based configuration
+│   ├── triggers.sql                ← 4 PostgreSQL triggers (auto-deployed)
+│   ├── data_loader.py              ← CSV → PostgreSQL + MongoDB
+│   ├── api/                        ← Route handlers
+│   │   ├── __init__.py
+│   │   ├── auth.py                 ← JWT registration, login, /me
+│   │   ├── products.py             ← Catalog listing, search, categories
+│   │   ├── cart.py                 ← Clickstream events + fraud detection
+│   │   ├── orders.py               ← Order creation (ACID transaction)
+│   │   └── analytics.py            ← RFM, funnel, basket, alerts, audit
+│   ├── models/                     ← Data structure definitions
+│   │   ├── __init__.py
+│   │   ├── relational.py           ← SQLAlchemy ORM (8 table classes)
+│   │   └── nosql_schemas.py        ← Pydantic models (MongoDB documents)
+│   ├── services/                   ← Business logic layer
+│   │   ├── __init__.py
+│   │   ├── relational_service.py   ← Complex SQL: RFM, market basket, alerts
+│   │   ├── nosql_service.py        ← MongoDB: bucket, funnel, fraud, indexes
+│   │   └── sync_service.py         ← Outbox CDC background processor
+│   ├── tests/                      ← Testing
+│   │   ├── __init__.py
+│   │   └── test_suite.py           ← 161-test comprehensive suite
+│   └── benchmark/                  ← Performance
+│       ├── benchmark_runner.py     ← Speed/memory comparison
+│       └── plots/                  ← Generated charts
+│
+├── frontend/                       ← React (Vite) SPA
+│   ├── Dockerfile
+│   ├── package.json
+│   ├── vite.config.js
+│   ├── index.html
+│   └── src/
+│       ├── main.jsx                ← Entry point
+│       ├── App.jsx                 ← Router + nav + auth state
+│       ├── api.js                  ← Axios HTTP client (all endpoints)
+│       ├── index.css               ← Global styles
+│       └── components/
+│           ├── Login.jsx           ← Login/register forms
+│           ├── ProductList.jsx     ← Catalog with search/filter/pagination
+│           ├── Cart.jsx            ← Shopping cart + clickstream tracking
+│           └── AdminDashboard.jsx  ← Charts: RFM pie, funnel bar, alerts
+│
+└── docs/                           ← Documentation & reports
+    ├── ER_Diagram.md               ← Entity-relationship diagram
+    ├── G11_Final_Report.md         ← Final submission (8 pages)
+    ├── G11_Progress_Report.md      ← Mid-project progress report
+    └── G11_Progress_Report.docx    ← Progress report (Word format)
 ```
 
 ---
 
-## Group 11 — INF2003
+## 🔧 Configuration
 
-| Deliverable | Deadline |
-|-------------|----------|
-| Progress Report | Mon, Jun 22, 2026 |
-| Slides, Video, Final Report, Source Code | Mon, Jul 13, 2026 |
-| Peer Review | Fri, Jul 17, 2026 |
+All settings are in environment variables (defined in `docker-compose.yml` for Docker, or `.env` for local dev):
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `DATABASE_URL` | `postgresql://ecommerce_user:ecommerce_pass@postgres:5432/ecommerce_db` | PostgreSQL connection |
+| `MONGO_URI` | `mongodb://mongodb:27017` | MongoDB connection |
+| `MONGO_DB` | `ecommerce_nosql` | MongoDB database name |
+| `JWT_SECRET_KEY` | `change-this-to-a-random-secret-key` | JWT signing key (**change for production!**) |
+| `JWT_ALGORITHM` | `HS256` | JWT algorithm |
+| `JWT_EXPIRE_MINUTES` | `60` | Token expiry time |
+| `FRAUD_EVENT_THRESHOLD` | `10` | Events before fraud flag |
+| `FRAUD_TIME_WINDOW_SECONDS` | `60` | Fraud detection time window |
+| `OUTBOX_POLL_INTERVAL` | `5` | CDC poll interval (seconds) |
+| `DEBUG` | `false` | SQLAlchemy query logging |
+
+---
+
+## 👥 Team
+
+**Group 11 — Team Hanzalians** · INF2003 Database Design & Implementation · SIT
+
+| Member | Role |
+|--------|------|
+| Hanzalah Hisam | **Team Lead** |
+| Faris Zharfan | Member |
+| Lucas Leow | Member |
+| Muhammad Hasan Bin Suwandi | Member |
+| Muhammad Raees Irfan Bin Ishak | Member |
+| Muhammad 'Afif Bin Muhd Lotfi Jarhom | Member |
+
+---
+
+## 📋 Deliverables
+
+| Deliverable | Deadline | Status |
+|-------------|----------|--------|
+| Progress Report | Mon, Jun 22, 2026 | ✅ Submitted |
+| Final Report | Sun, Jul 13, 2026 | 📝 In progress |
+| Source Code | Sun, Jul 13, 2026 | ✅ Complete |
+| Presentation | TBD | 📝 In progress |
+
+---
+
+## 🛠️ Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| "Port already allocated" | Stop other services using ports 5432/27017/8000/3000 |
+| No products on website | Run `python data_loader.py` inside backend container |
+| Login not working | Register a new account first, or check token validity |
+| "Admin access required" | Your account has `customer` role — need `admin` role |
+| Tests fail | Ensure `docker-compose up` is running |
+| Docker container won't start | Run `docker-compose down -v` then `docker-compose up` |
+
+---
+
+*INF2003 Group 11 — Singapore Institute of Technology — June 2026*
