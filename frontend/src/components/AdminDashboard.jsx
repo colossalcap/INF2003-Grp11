@@ -58,38 +58,62 @@ export default function AdminDashboard({ user }) {
 
   return (
     <div>
-      <div className="flex-between mb-2">
+      <div className="page-header">
         <h2>📊 Admin Dashboard</h2>
-        <button className="btn btn-outline btn-sm" onClick={loadAll}>🔄 Refresh</button>
+        <button className="btn btn-outline btn-sm" onClick={loadAll}>🔄 Refresh Data</button>
       </div>
 
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+      {/* Stat Cards */}
+      <div className="stat-grid">
+        <div className="stat-card">
+          <div className="stat-value">{rfm.length.toLocaleString()}</div>
+          <div className="stat-label">Customers Analyzed</div>
+        </div>
+        <div className="stat-card" style={{ '--stat-color': 'var(--success)' }}>
+          <div className="stat-value" style={{ color: 'var(--success)' }}>{funnel[0]?.count?.toLocaleString() || '—'}</div>
+          <div className="stat-label">Page Views</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value" style={{ color: 'var(--warning)' }}>{alerts.length}</div>
+          <div className="stat-label">Fraud Alerts</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-value" style={{ color: '#7c3aed' }}>{marketBasket.length}</div>
+          <div className="stat-label">Product Pairs</div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="tabs">
         {['rfm', 'funnel', 'alerts', 'products', 'basket'].map(tab => (
           <button
             key={tab}
-            className={`btn btn-sm ${activeTab === tab ? 'btn-primary' : 'btn-outline'}`}
+            className={`tab-btn ${activeTab === tab ? 'active' : ''}`}
             onClick={() => setActiveTab(tab)}
           >
-            {tab === 'rfm' && 'RFM Segmentation'}
-            {tab === 'funnel' && 'Funnel Analytics'}
-            {tab === 'alerts' && `Alerts (${alerts.length})`}
-            {tab === 'products' && 'Top Products'}
-            {tab === 'basket' && 'Market Basket'}
+            {tab === 'rfm' && '📊 RFM Segmentation'}
+            {tab === 'funnel' && '📈 Funnel Analytics'}
+            {tab === 'alerts' && `🚨 Alerts (${alerts.length})`}
+            {tab === 'products' && '🏆 Top Products'}
+            {tab === 'basket' && '🛒 Market Basket'}
           </button>
         ))}
       </div>
 
       {loading ? (
-        <div className="loading">Loading analytics...</div>
+        <div className="loading">
+          <div className="loading-spinner"></div>
+          <p className="loading-text">Loading analytics data...</p>
+        </div>
       ) : (
         <>
           {/* RFM Segmentation */}
           {activeTab === 'rfm' && (
             <div>
-              <div className="card">
+              <div className="chart-container">
                 <h3>Customer Segmentation (RFM Analysis)</h3>
-                <p style={{ color: '#666', fontSize: '0.85rem', marginBottom: '1rem' }}>
-                  Recency, Frequency, Monetary scores using NTILE(4). Total customers analyzed: {rfm.length}
+                <p className="text-sm text-muted mb-2">
+                  Recency, Frequency, Monetary scores using NTILE(4). Total customers analyzed: {rfm.length.toLocaleString()}
                 </p>
                 <ResponsiveContainer width="100%" height={350}>
                   <PieChart>
@@ -104,7 +128,7 @@ export default function AdminDashboard({ user }) {
                 </ResponsiveContainer>
               </div>
 
-              <div className="card mt-2">
+              <div className="chart-container mt-2">
                 <h3>Top Customers</h3>
                 <table>
                   <thead>
@@ -143,7 +167,7 @@ export default function AdminDashboard({ user }) {
           {/* Funnel Analytics */}
           {activeTab === 'funnel' && (
             <div>
-              <div className="card">
+              <div className="chart-container">
                 <h3>Conversion Funnel (MongoDB $facet Aggregation)</h3>
                 <ResponsiveContainer width="100%" height={350}>
                   <BarChart data={funnel}>
@@ -156,7 +180,7 @@ export default function AdminDashboard({ user }) {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-              <div className="card mt-2">
+              <div className="chart-container mt-2">
                 <table>
                   <thead>
                     <tr><th>Stage</th><th>Sessions</th><th>Conversion Rate</th></tr>
@@ -177,7 +201,7 @@ export default function AdminDashboard({ user }) {
 
           {/* Alerts */}
           {activeTab === 'alerts' && (
-            <div className="card">
+            <div className="chart-container">
               <h3>🚨 Fraud & Security Alerts</h3>
               {alerts.length === 0 ? (
                 <p style={{ color: '#999' }}>No alerts. Try triggering fraud detection from the Cart page.</p>

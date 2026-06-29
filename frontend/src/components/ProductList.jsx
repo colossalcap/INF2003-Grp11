@@ -1,6 +1,24 @@
 import { useState, useEffect, useRef } from 'react'
 import * as api from '../api'
 
+const CATEGORY_ICONS = {
+  'Electronics': '⚡',
+  'Fashion': '👗',
+  'Beauty': '💄',
+  'Books': '📚',
+  'Home & Kitchen': '🏠',
+  'Sports': '⚽',
+  'Toys': '🎮',
+}
+
+const DEFAULT_ICON = '📦'
+
+function getStockClass(qty) {
+  if (qty >= 100) return 'stock-high'
+  if (qty >= 20) return 'stock-medium'
+  return 'stock-low'
+}
+
 export default function ProductList({ user }) {
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
@@ -10,7 +28,7 @@ export default function ProductList({ user }) {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [message, setMessage] = useState('')
+  const [toast, setToast] = useState(null)
   const sessionId = useRef(crypto.randomUUID())
 
   useEffect(() => {
@@ -20,6 +38,11 @@ export default function ProductList({ user }) {
   useEffect(() => {
     loadProducts()
   }, [page, selectedCategory])
+
+  const showToast = (msg, type = 'info') => {
+    setToast({ msg, type })
+    setTimeout(() => setToast(null), 3500)
+  }
 
   const loadProducts = async () => {
     setLoading(true)
@@ -42,23 +65,21 @@ export default function ProductList({ user }) {
   }
 
   const handleAddToCart = async (productId) => {
-    if (!user) { setMessage('Please login to add items to cart.'); setTimeout(() => setMessage(''), 3000); return }
+    if (!user) { showToast('Please login to add items to cart.', 'warning'); return }
     try {
       const res = await api.recordEvent('add_to_cart', productId, sessionId.current)
       if (res.fraud_alert) {
-        setMessage(`⚠️ Fraud alert: ${res.fraud_alert.reason}`)
+        showToast(`⚠️ Fraud alert: ${res.fraud_alert.reason}`, 'warning')
       } else {
-        setMessage(`✅ Added product ${productId} to cart!`)
+        showToast(`Added Product #${productId} to cart!`, 'success')
       }
-      setTimeout(() => setMessage(''), 3000)
     } catch (err) {
-      setMessage('❌ Failed to record event.')
-      setTimeout(() => setMessage(''), 3000)
+      showToast('Failed to record event.', 'error')
     }
   }
 
   const handleCheckout = async () => {
-    if (!user) { setMessage('Please login to checkout.'); setTimeout(() => setMessage(''), 3000); return }
+    if (!user) { showToast('Please login to checkout.', 'warning'); return }
     if (products.length === 0) return
 
     try {
@@ -68,16 +89,12 @@ export default function ProductList({ user }) {
       }))
 
       await api.createOrder(items)
-      setMessage('🎉 Order placed successfully!')
+      showToast('Order placed successfully!', 'success')
 
-      // Record checkout + purchase events
       await api.recordEvent('checkout', null, sessionId.current)
       await api.recordEvent('purchase', null, sessionId.current)
-
-      setTimeout(() => setMessage(''), 3000)
     } catch (err) {
-      setMessage('❌ Checkout failed: ' + (err.response?.data?.detail || err.message))
-      setTimeout(() => setMessage(''), 3000)
+      showToast('Checkout failed: ' + (err.response?.data?.detail || err.message), 'error')
     }
   }
 
@@ -85,94 +102,107 @@ export default function ProductList({ user }) {
 
   return (
     <div>
-      <div className="flex-between mb-2">
-        <h2>Product Catalog</h2>
-        {user && (
-          <div>
-            <button className="btn btn-success btn-sm" onClick={handleCheckout}>
-              🛒 Checkout (Sample Order)
-            </button>
+      {/* Toast */}
+      {toast && (
+        <div className="toast-container">
+          <div className={`toast toast-${toast.type}`}>
+            {toast.msg}
           </div>
-        )}
-      </div>
-
-      {message && (
-        <div className={`alert ${message.includes('❌') || message.includes('⚠️') ? 'alert-danger' : 'alert-success'}`}>
-          {message}
         </div>
       )}
 
-      <form onSubmit={handleSearch} className="flex-between mb-2" style={{ gap: '0.5rem' }}>
+      <div className="page-header">
+        <h2>Product Catalog</h2>
+        {user && (
+          <button className="btn btn-success" onClick={handleCheckout}>
+            🛒 Checkout (Sample Order)
+          </button>
+        )}
+      </div>
+
+      <form onSubmit={handleSearch} className="search-bar mb-2">
         <input
           type="text"
-          placeholder="Search products..."
+          placeholder="Search products by ID or name..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          style={{ flex: 1, padding: '0.5rem', border: '1px solid #ddd', borderRadius: 4 }}
         />
         <select
           value={selectedCategory}
           onChange={e => { setSelectedCategory(e.target.value); setPage(1) }}
-          style={{ padding: '0.5rem', border: '1px solid #ddd', borderRadius: 4 }}
         >
           <option value="">All Categories</option>
           {categories.map(c => (
             <option key={c} value={c}>{c}</option>
           ))}
         </select>
-        <button type="submit" className="btn btn-primary">Search</button>
+        <button type="submit" className="btn btn-primary">🔍 Search</button>
       </form>
 
-      {error && <div className="alert alert-danger">{error}</div>}
+      {error && (
+        <div className="card mb-2" style={{ borderLeft: '4px solid var(--danger)', background: 'var(--danger-light)' }}>
+          <p style={{ color: '#991b1b', fontWeight: 500 }}>{error}</p>
+        </div>
+      )}
+
       {loading ? (
-        <div className="loading">Loading products...</div>
+        <div className="loading">
+          <div className="loading-spinner"></div>
+          <p className="loading-text">Loading products...</p>
+        </div>
       ) : (
         <>
           <div className="grid grid-4">
-            {products.map(p => (
-              <div key={p.product_id} className="card" style={{ textAlign: 'center' }}>
-                <h3 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>📦</h3>
-                <h4 style={{ fontSize: '0.95rem', marginBottom: '0.25rem' }}>Product #{p.product_id}</h4>
-                <p style={{ color: '#666', fontSize: '0.85rem' }}>{p.category}</p>
-                <p style={{ fontSize: '1.1rem', fontWeight: 600, color: '#2e7d32' }}>
-                  ${p.unit_price?.toFixed(2)}
-                </p>
-                <p style={{ fontSize: '0.8rem', color: '#999' }}>
-                  Stock: {p.stock_quantity}
-                </p>
-                {user && (
-                  <button
-                    className="btn btn-primary btn-sm mt-1"
-                    onClick={() => handleAddToCart(p.product_id)}
-                    style={{ width: '100%' }}
-                  >
-                    Add to Cart
-                  </button>
-                )}
-              </div>
-            ))}
+            {products.map(p => {
+              const icon = CATEGORY_ICONS[p.category] || DEFAULT_ICON
+              const stockClass = getStockClass(p.stock_quantity)
+              return (
+                <div key={p.product_id} className="product-card">
+                  <div className="product-icon">{icon}</div>
+                  <h4>Product #{p.product_id}</h4>
+                  <p className="category">{p.category}</p>
+                  <p className="price">${p.unit_price?.toFixed(2)}</p>
+                  <p className={`stock ${stockClass}`}>
+                    {p.stock_quantity < 20 ? '⚠️ ' : ''}Stock: {p.stock_quantity}
+                  </p>
+                  {user && (
+                    <button
+                      className="btn btn-primary btn-sm btn-block mt-1"
+                      onClick={() => handleAddToCart(p.product_id)}
+                    >
+                      🛒 Add to Cart
+                    </button>
+                  )}
+                </div>
+              )
+            })}
           </div>
 
           {products.length === 0 && (
-            <div className="loading">No products found.</div>
+            <div className="empty-state">
+              <div className="empty-icon">🔍</div>
+              <p>No products found. Try a different search or category.</p>
+            </div>
           )}
 
           {totalPages > 1 && (
-            <div className="flex-between mt-2" style={{ justifyContent: 'center', gap: '0.5rem' }}>
+            <div className="flex-center mt-3 gap-sm">
               <button
                 className="btn btn-outline btn-sm"
                 disabled={page <= 1}
                 onClick={() => setPage(p => p - 1)}
               >
-                Previous
+                ← Previous
               </button>
-              <span>Page {page} of {totalPages}</span>
+              <span className="text-sm text-muted font-bold">
+                Page {page} of {totalPages}
+              </span>
               <button
                 className="btn btn-outline btn-sm"
                 disabled={page >= totalPages}
                 onClick={() => setPage(p => p + 1)}
               >
-                Next
+                Next →
               </button>
             </div>
           )}

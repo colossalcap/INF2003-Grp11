@@ -40,10 +40,11 @@ function App() {
   return (
     <BrowserRouter>
       <nav className="navbar">
-        <Link to="/" style={{ color: 'white', textDecoration: 'none' }}>
+        <Link to="/" style={{ color: 'white', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{ fontSize: '1.4rem' }}>🛒</span>
           <h1>E-Commerce Analytics</h1>
         </Link>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <Link to="/">Products</Link>
 
           {user ? (
@@ -51,34 +52,21 @@ function App() {
               <Link to="/cart">Cart</Link>
               {user.role === 'admin' && <Link to="/admin">Admin</Link>}
 
-              {/* Divider */}
-              <span style={{ color: '#555', margin: '0 0.5rem', fontSize: '1.2rem' }}>|</span>
+              <span style={{ color: '#475569', margin: '0 0.2rem', fontSize: '1.2rem' }}>|</span>
 
-              {/* User info */}
-              <span style={{
-                background: '#2d6a4f', color: 'white', padding: '0.25rem 0.6rem',
-                borderRadius: '4px', fontSize: '0.85rem', fontWeight: 500
-              }}>
+              <span className="nav-user-badge">
                 {user.display_name || user.username}
               </span>
 
-              {/* Logout button */}
-              <button onClick={handleLogout} style={{
-                marginLeft: '0.3rem', background: '#c62828', color: 'white',
-                border: 'none', borderRadius: '4px', padding: '0.25rem 0.6rem',
-                cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600
-              }}>
+              <button onClick={handleLogout} className="nav-logout-btn">
                 Logout
               </button>
             </>
           ) : (
             <>
-              <span style={{ color: '#666', margin: '0 0.3rem', fontSize: '1.2rem' }}>|</span>
+              <span style={{ color: '#475569', margin: '0 0.2rem', fontSize: '1.2rem' }}>|</span>
               <Link to="/login">Login</Link>
-              <Link to="/login" style={{
-                marginLeft: '0.3rem', background: '#1976d2', color: 'white',
-                padding: '0.25rem 0.6rem', borderRadius: '4px', fontSize: '0.85rem'
-              }}>
+              <Link to="/login" className="nav-register-btn">
                 Register
               </Link>
             </>

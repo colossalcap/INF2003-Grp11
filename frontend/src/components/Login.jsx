@@ -26,7 +26,6 @@ export default function Login({ onLogin }) {
       } else {
         const data = await api.login(username, password)
         onLogin(data.access_token, data.user)
-        // Navigate client-side (no full reload — preserves state)
         navigate(data.user.role === 'admin' ? '/admin' : '/')
       }
     } catch (err) {
@@ -37,47 +36,100 @@ export default function Login({ onLogin }) {
   }
 
   return (
-    <div style={{ maxWidth: 420, margin: '3rem auto' }}>
+    <div className="auth-card">
       <div className="card">
-        <h2 style={{ marginBottom: '1rem' }}>
-          {isRegister ? 'Register' : 'Login'}
-        </h2>
+        <h2>{isRegister ? 'Create Account' : 'Welcome Back'}</h2>
+        <p className="subtitle">
+          {isRegister
+            ? 'Sign up to start shopping and track your orders.'
+            : 'Sign in to your account to continue.'}
+        </p>
 
-        {error && <div className="alert alert-danger">{error}</div>}
+        {error && (
+          <div className="card mb-2" style={{ borderLeft: '4px solid var(--danger)', background: 'var(--danger-light)', padding: '0.75rem 1rem' }}>
+            <p style={{ color: '#991b1b', fontWeight: 500, fontSize: '0.9rem' }}>{error}</p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Username</label>
-            <input value={username} onChange={e => setUsername(e.target.value)} required />
+            <input
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+              placeholder="Enter your username"
+              required
+            />
           </div>
 
           {isRegister && (
             <>
               <div className="form-group">
                 <label>Email</label>
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} required />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                />
               </div>
               <div className="form-group">
                 <label>Display Name</label>
-                <input value={displayName} onChange={e => setDisplayName(e.target.value)} />
+                <input
+                  value={displayName}
+                  onChange={e => setDisplayName(e.target.value)}
+                  placeholder="How should we call you?"
+                />
               </div>
             </>
           )}
 
           <div className="form-group">
             <label>Password</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required />
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="Enter your password"
+              required
+            />
           </div>
 
-          <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
-            {loading ? 'Processing...' : isRegister ? 'Register' : 'Login'}
+          <button
+            type="submit"
+            className="btn btn-primary btn-block btn-lg"
+            disabled={loading}
+          >
+            {loading ? (
+              <>Processing...</>
+            ) : isRegister ? (
+              'Create Account'
+            ) : (
+              'Sign In'
+            )}
           </button>
         </form>
 
-        <p style={{ marginTop: '1rem', textAlign: 'center', fontSize: '0.9rem' }}>
+        <div className="auth-toggle">
           {isRegister ? 'Already have an account?' : "Don't have an account?"}{' '}
-          <a href="#" onClick={() => { setIsRegister(!isRegister); setError('') }}>
-            {isRegister ? 'Login' : 'Register'}
+          <a href="#" onClick={(e) => { e.preventDefault(); setIsRegister(!isRegister); setError('') }}>
+            {isRegister ? 'Sign In' : 'Register'}
+          </a>
+        </div>
+      </div>
+
+      {!isRegister && (
+        <div style={{ marginTop: '1rem', padding: '1rem', background: 'var(--gray-50)', borderRadius: 'var(--radius)', border: '1px dashed var(--gray-300)', textAlign: 'center' }}>
+          <p className="text-sm text-muted">
+            <strong>Demo:</strong> Register a new account or use one of the pre-loaded customer accounts.<br />
+            Try username <code>user_1</code> with password <code>password123</code>
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
           </a>
         </p>
       </div>
