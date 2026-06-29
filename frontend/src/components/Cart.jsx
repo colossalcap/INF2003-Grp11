@@ -130,33 +130,3 @@ export default function Cart({ user }) {
     </div>
   )
 }
-          </button>
-        </div>
-      </div>
-
-      {events.length > 0 && (
-        <div className="card mt-2">
-          <h3 style={{ marginBottom: '0.5rem' }}>Recent Events</h3>
-          <table>
-            <thead>
-              <tr><th>Action</th><th>Time</th></tr>
-            </thead>
-            <tbody>
-              {events.slice(-10).reverse().map((e, i) => (
-                <tr key={i}>
-                  <td>{e.actionType}</td>
-                  <td>{e.time}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      <div className="card mt-2" style={{ fontSize: '0.85rem', color: '#666' }}>
-        <strong>💡 Tip:</strong> Click "Add to Cart" rapidly (10+ times within 60 seconds) to trigger
-        the fraud detection system. The alert will appear in the Admin Dashboard.
-      </div>
-    </div>
-  )
-}

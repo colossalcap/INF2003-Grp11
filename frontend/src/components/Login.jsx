@@ -130,13 +130,4 @@ export default function Login({ onLogin }) {
     </div>
   )
 }
-          </a>
-        </p>
-      </div>
 
-      <div className="card" style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#666' }}>
-        <strong>Demo:</strong> Use any existing username/password or register a new account.
-      </div>
-    </div>
-  )
-}
