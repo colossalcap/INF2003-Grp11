@@ -75,7 +75,7 @@ export default function ProductList({ user, cartItems, addToCart }) {
       if (res.fraud_alert) {
         showToast(`⚠️ Fraud alert: ${res.fraud_alert.reason}`, 'warning')
       } else {
-        showToast(`Added Product #${product.product_id} to cart!`, 'success')
+        showToast(`Added ${product.name || 'Product #' + product.product_id} to cart!`, 'success')
       }
     } catch (err) {
       showToast('Failed to record event.', 'error')
@@ -149,8 +149,8 @@ export default function ProductList({ user, cartItems, addToCart }) {
                     </span>
                   )}
                   <div className="product-icon">{icon}</div>
-                  <h4>Product #{p.product_id}</h4>
-                  <p className="category">{p.category}</p>
+                  <h4 title={p.name}>{p.name || `Product #${p.product_id}`}</h4>
+                  <p className="category">{p.category} <span style={{color: '#94a3b8', fontSize: '0.75rem'}}>#{p.product_id}</span></p>
                   <p className="price">${p.unit_price?.toFixed(2)}</p>
                   <p className={`stock ${stockClass}`}>
                     {p.stock_quantity < 20 ? '⚠️ ' : ''}Stock: {p.stock_quantity}

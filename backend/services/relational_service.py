@@ -97,13 +97,17 @@ def compute_market_basket(db: Session, top_n: int = 10) -> List[dict]:
     query = text("""
         SELECT
             p1.product_id AS product_a,
+            pa.name AS name_a,
             p2.product_id AS product_b,
+            pb.name AS name_b,
             COUNT(*) AS pair_count
         FROM order_items p1
         JOIN order_items p2
             ON p1.order_id = p2.order_id
             AND p1.product_id < p2.product_id
-        GROUP BY p1.product_id, p2.product_id
+        JOIN products pa ON pa.product_id = p1.product_id
+        JOIN products pb ON pb.product_id = p2.product_id
+        GROUP BY p1.product_id, pa.name, p2.product_id, pb.name
         ORDER BY pair_count DESC
         LIMIT :top_n;
     """)
@@ -114,8 +118,10 @@ def compute_market_basket(db: Session, top_n: int = 10) -> List[dict]:
     return [
         {
             "product_a": row[0],
-            "product_b": row[1],
-            "pair_count": int(row[2]),
+            "name_a": row[1],
+            "product_b": row[2],
+            "name_b": row[3],
+            "pair_count": int(row[4]),
         }
         for row in rows
     ]
@@ -194,13 +200,14 @@ def get_top_products(db: Session, limit: int = 10) -> List[dict]:
     query = text("""
         SELECT
             p.product_id,
+            p.name,
             p.category,
             p.unit_price,
             SUM(oi.quantity) AS total_sold,
             SUM(oi.quantity * p.unit_price) AS total_revenue
         FROM products p
         JOIN order_items oi ON p.product_id = oi.product_id
-        GROUP BY p.product_id, p.category, p.unit_price
+        GROUP BY p.product_id, p.name, p.category, p.unit_price
         ORDER BY total_sold DESC
         LIMIT :limit;
     """)
@@ -211,10 +218,11 @@ def get_top_products(db: Session, limit: int = 10) -> List[dict]:
     return [
         {
             "product_id": row[0],
-            "category": row[1],
-            "unit_price": float(row[2]),
-            "total_sold": int(row[3]),
-            "total_revenue": float(row[4]),
+            "name": row[1],
+            "category": row[2],
+            "unit_price": float(row[3]),
+            "total_sold": int(row[4]),
+            "total_revenue": float(row[5]),
         }
         for row in rows
     ]

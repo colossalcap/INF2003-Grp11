@@ -130,7 +130,7 @@ export default function Cart({ user, cartItems, updateCartQuantity, removeFromCa
                     <tr key={item.product_id}>
                       <td>
                         <span style={{ marginRight: '0.4rem' }}>{icon}</span>
-                        <strong>#{item.product_id}</strong>
+                        <strong title={`#${item.product_id}`}>{item.name || `#${item.product_id}`}</strong>
                       </td>
                       <td className="text-sm text-muted">{item.category}</td>
                       <td className="font-bold">${item.unit_price?.toFixed(2)}</td>

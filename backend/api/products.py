@@ -41,6 +41,7 @@ async def list_products(
         "products": [
             {
                 "product_id": p.product_id,
+                "name": p.name,
                 "category": p.category,
                 "unit_price": p.unit_price,
                 "stock_quantity": p.stock_quantity,
@@ -59,6 +60,7 @@ async def get_product(product_id: str, db: Session = Depends(get_db)):
 
     return {
         "product_id": product.product_id,
+        "name": product.name,
         "category": product.category,
         "unit_price": product.unit_price,
         "stock_quantity": product.stock_quantity,

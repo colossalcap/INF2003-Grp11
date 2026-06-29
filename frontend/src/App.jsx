@@ -65,6 +65,7 @@ function App() {
       }
       return [...prev, {
         product_id: product.product_id,
+        name: product.name || `Product #${product.product_id}`,
         category: product.category,
         unit_price: product.unit_price,
         stock_quantity: product.stock_quantity,

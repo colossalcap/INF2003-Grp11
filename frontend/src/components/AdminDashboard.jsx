@@ -236,11 +236,11 @@ export default function AdminDashboard({ user }) {
               <div className="card">
                 <h3>Top Selling Products</h3>
                 <ResponsiveContainer width="100%" height={350}>
-                  <BarChart data={topProducts.slice(0, 10)} layout="vertical">
+                  <BarChart data={topProducts.slice(0, 10).map(p => ({ ...p, label: (p.name || p.product_id).length > 25 ? (p.name || p.product_id).slice(0, 22) + '...' : (p.name || p.product_id) }))} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis type="number" />
-                    <YAxis dataKey="product_id" type="category" width={100} />
-                    <Tooltip />
+                    <YAxis dataKey="label" type="category" width={180} />
+                    <Tooltip formatter={(value, name, props) => [value, props.payload.name || props.payload.product_id]} />
                     <Bar dataKey="total_sold" fill="#2e7d32" name="Units Sold" />
                   </BarChart>
                 </ResponsiveContainer>
@@ -280,8 +280,8 @@ export default function AdminDashboard({ user }) {
                   <tbody>
                     {marketBasket.map((pair, i) => (
                       <tr key={i}>
-                        <td>{pair.product_a}</td>
-                        <td>{pair.product_b}</td>
+                        <td title={`#${pair.product_a}`}>{pair.name_a || pair.product_a} <span style={{color: '#94a3b8', fontSize: '0.75rem'}}>#{pair.product_a}</span></td>
+                        <td title={`#${pair.product_b}`}>{pair.name_b || pair.product_b} <span style={{color: '#94a3b8', fontSize: '0.75rem'}}>#{pair.product_b}</span></td>
                         <td><strong>{pair.pair_count}</strong></td>
                       </tr>
                     ))}

@@ -122,6 +122,7 @@ def load_products_postgres(batch_size: int = 1000):
 
             product = Product(
                 product_id=str(row["product_id"]),
+                name=str(row.get("name", f"Product {row['product_id']}")),
                 category=str(row.get("category", "Uncategorized")),
                 unit_price=float(row.get("price_usd", 0)),
                 stock_quantity=1000,  # Default stock

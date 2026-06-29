@@ -86,6 +86,7 @@ class Product(Base):
     __tablename__ = "products"
 
     product_id = Column(String(50), primary_key=True)
+    name = Column(String(255), nullable=False, default="Unknown Product")
     category = Column(String(100), nullable=False, index=True)
     unit_price = Column(Float, nullable=False)
     stock_quantity = Column(Integer, nullable=False)
