@@ -183,24 +183,11 @@ GenAI tools (ChatGPT, DeepSeek) were used throughout the project to:
 
 ## Appendix (not counted in page limit)
 
-### Source Code Files
 - SQL triggers: `backend/triggers.sql`
-- SQLAlchemy ORM: `backend/models/relational.py`
 - MongoDB operations: `backend/services/nosql_service.py`
-- Complex SQL queries: `backend/services/relational_service.py`
-- CDC sync processor: `backend/services/sync_service.py`
-- Data loader: `backend/data_loader.py`
-- Database reset: `backend/reset_db.py`
-- Test suite: `backend/tests/test_suite.py`
+- SQL queries: `backend/services/relational_service.py`
 - Benchmark: `backend/benchmark/benchmark_runner.py`
 - Docker: `docker-compose.yml`
-
-### Documentation Files
-- Technical README: `README.md`
-- Non-technical walkthrough: `walkthrough.md`
-- ER Diagram: `docs/ER_Diagram.md`
-- Docker troubleshooting: `DOCKER_TROUBLESHOOTING.md`
-- Progress report: `docs/G11_Progress_Report.md`
 
 ---
 
