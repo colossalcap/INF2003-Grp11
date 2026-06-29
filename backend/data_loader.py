@@ -3,6 +3,9 @@
 INF2003 Group 11 — Data Loader
 Ingests CSV files into PostgreSQL and MongoDB.
 Reads from data/ directory.
+
+Performance: Set DEMO_MODE=True for lecturer demos (~1-2 min).
+             Set DEMO_MODE=False for full dataset (~20 min).
 ============================================================
 """
 
@@ -11,6 +14,7 @@ import uuid
 import asyncio
 from datetime import datetime
 from pathlib import Path
+from collections import defaultdict
 
 import pandas as pd
 from sqlalchemy import text
@@ -21,6 +25,22 @@ from models.relational import (
 )
 from models.nosql_schemas import ActionType
 from services.nosql_service import track_clickstream_event, get_mongo_db
+
+# ============================================================
+# CONFIGURATION — Toggle demo mode for fast lecturer setup
+# ============================================================
+DEMO_MODE = True  # Set to False to load the full 275K+ row dataset
+
+# Row limits in demo mode (full dataset if DEMO_MODE=False)
+DEMO_CUSTOMERS = 2000       # Full: 20,000
+DEMO_PRODUCTS = None        # Full: 1,197 (always load all — tiny)
+DEMO_ORDERS = 3000          # Full: 33,580
+DEMO_CLICKSTREAM_EVENTS = 40000  # Full: 760,958
+DEMO_SESSIONS = 10000       # Full: 120,000
+
+def _nrows(demo_limit):
+    """Return nrows for pd.read_csv based on DEMO_MODE."""
+    return demo_limit if DEMO_MODE else None
 
 # Resolve data directory: backend/data_loader.py -> project_root/data/
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
@@ -36,7 +56,7 @@ def load_customers_postgres(batch_size: int = 1000):
         print(f"[WARN] {filepath} not found. Skipping customers.", flush=True)
         return 0
 
-    df = pd.read_csv(filepath)
+    df = pd.read_csv(filepath, nrows=_nrows(DEMO_CUSTOMERS))
     db = SessionLocal()
     count = 0
 
@@ -90,7 +110,7 @@ def load_products_postgres(batch_size: int = 1000):
         print(f"[WARN] {filepath} not found. Skipping products.", flush=True)
         return 0
 
-    df = pd.read_csv(filepath)
+    df = pd.read_csv(filepath, nrows=_nrows(DEMO_PRODUCTS))
     db = SessionLocal()
     count = 0
 
@@ -134,8 +154,12 @@ def load_orders_postgres(batch_size: int = 500):
         print(f"[WARN] {orders_path} not found. Skipping orders.", flush=True)
         return 0
 
-    df_orders = pd.read_csv(orders_path)
+    df_orders = pd.read_csv(orders_path, nrows=_nrows(DEMO_ORDERS))
     df_items = pd.read_csv(items_path) if items_path.exists() else None
+    # If we sampled orders, filter items to only those orders
+    if DEMO_MODE and df_items is not None:
+        valid_order_ids = set(df_orders["order_id"].astype(str))
+        df_items = df_items[df_items["order_id"].astype(str).isin(valid_order_ids)]
 
     db = SessionLocal()
     count = 0
@@ -229,12 +253,16 @@ def load_orders_postgres(batch_size: int = 500):
 
 
 # ============================================================
-# MongoDB Loader
+# MongoDB Loader (BATCH-OPTIMIZED)
 # ============================================================
 async def load_clickstream_to_mongo(batch_size: int = 5000):
     """
     Load clickstream events from events.csv and sessions.csv into MongoDB.
     Uses the Bucket Pattern (user_sessions collection).
+
+    OPTIMIZED: Uses $push with $each to batch all events per session
+    into a SINGLE MongoDB operation, instead of one call per event.
+    Sessions are bulk-inserted with insert_many (unordered, ignore dupes).
     """
     events_path = DATA_DIR / "clickstream_events.csv"
     sessions_path = DATA_DIR / "sessions.csv"
@@ -243,63 +271,110 @@ async def load_clickstream_to_mongo(batch_size: int = 5000):
         print(f"[WARN] No clickstream files found. Skipping MongoDB load.", flush=True)
         return 0
 
-    count = 0
+    db = await get_mongo_db()
+    total_count = 0
 
-    # Load sessions first
+    # ----------------------------------------------------------
+    # Phase 1: Bulk-insert session documents
+    # ----------------------------------------------------------
     if sessions_path.exists():
-        df_sessions = pd.read_csv(sessions_path)
+        df_sessions = pd.read_csv(sessions_path, nrows=_nrows(DEMO_SESSIONS))
+        session_docs = []
+        seen = set()
+
         for _, row in df_sessions.iterrows():
-            session_id = str(row["session_id"])
-            customer_id = str(row["customer_id"])
+            sid = str(row["session_id"])
+            cid = str(row["customer_id"])
+            key = (cid, sid)
+            if key in seen:
+                continue
+            seen.add(key)
+            now = datetime.utcnow()
+            session_docs.append({
+                "customer_id": cid,
+                "session_id": sid,
+                "events": [],
+                "event_count": 0,
+                "start_time": now,
+                "end_time": now,
+                "flagged": False,
+            })
 
-            # Create session document
-            await track_clickstream_event(
-                customer_id=customer_id,
-                session_id=session_id,
-                action_type=ActionType.PAGE_VIEW,
-                product_id=None,
-            )
-            count += 1
+        if session_docs:
+            try:
+                result = await db.user_sessions.insert_many(session_docs, ordered=False)
+                total_count += len(result.inserted_ids)
+                print(f"  Bulk-inserted {len(result.inserted_ids)} session documents.", flush=True)
+            except Exception:
+                # Duplicate key errors are fine — sessions may already exist
+                print(f"  Sessions exist, skipping bulk insert.", flush=True)
 
-        print(f"  Created {count} session documents in MongoDB.", flush=True)
-
-    # Load individual events
+    # ----------------------------------------------------------
+    # Phase 2: Batch-load events grouped by session
+    # ----------------------------------------------------------
     if events_path.exists():
-        df_events = pd.read_csv(events_path)
-        event_count = 0
+        print(f"  Reading clickstream events...", flush=True)
+        df_events = pd.read_csv(events_path, nrows=_nrows(DEMO_CLICKSTREAM_EVENTS))
+        print(f"  Grouping {len(df_events)} events by session...", flush=True)
+
+        # Map CSV event types to ActionType
+        type_map = {
+            "page_view": ActionType.PAGE_VIEW.value,
+            "add_to_cart": ActionType.ADD_TO_CART.value,
+            "checkout": ActionType.CHECKOUT.value,
+            "purchase": ActionType.PURCHASE.value,
+            "remove_from_cart": ActionType.PAGE_VIEW.value,
+        }
+
+        # Group events by (customer_id, session_id) in memory
+        session_events: dict = defaultdict(list)
+        session_customer: dict = {}  # session_id -> customer_id
 
         for _, row in df_events.iterrows():
             event_type_str = str(row.get("event_type", "page_view")).lower()
-
-            # Map CSV event types to our ActionType enum
-            type_map = {
-                "page_view": ActionType.PAGE_VIEW,
-                "add_to_cart": ActionType.ADD_TO_CART,
-                "checkout": ActionType.CHECKOUT,
-                "purchase": ActionType.PURCHASE,
-                "remove_from_cart": ActionType.PAGE_VIEW,  # fallback
-            }
-            action_type = type_map.get(event_type_str, ActionType.PAGE_VIEW)
-
+            action_type = type_map.get(event_type_str, ActionType.PAGE_VIEW.value)
             product_id = str(int(row["product_id"])) if pd.notna(row.get("product_id")) else None
             session_id = str(row["session_id"])
-            customer_id = "unknown"  # We'll match by session later
+            customer_id = "unknown"
 
-            await track_clickstream_event(
-                customer_id=customer_id,
-                session_id=session_id,
-                action_type=action_type,
-                product_id=product_id,
+            session_events[session_id].append({
+                "action_type": action_type,
+                "product_id": product_id,
+                "timestamp": datetime.utcnow(),
+            })
+            session_customer[session_id] = customer_id
+
+        # Batch-write: one update_one per session with $push + $each
+        event_count = 0
+        ops_count = 0
+        sessions_processed = 0
+
+        for session_id, events in session_events.items():
+            customer_id = session_customer.get(session_id, "unknown")
+            n = len(events)
+
+            await db.user_sessions.update_one(
+                {"customer_id": customer_id, "session_id": session_id},
+                {
+                    "$push": {"events": {"$each": events}},
+                    "$inc": {"event_count": n},
+                    "$set": {"end_time": datetime.utcnow()},
+                    "$setOnInsert": {"start_time": datetime.utcnow(), "flagged": False},
+                },
+                upsert=True,
             )
-            event_count += 1
 
-            if event_count % batch_size == 0:
-                print(f"  Loaded {event_count} clickstream events into MongoDB...", flush=True)
+            event_count += n
+            ops_count += 1
+            sessions_processed += 1
 
-        print(f"[OK] Loaded {event_count} clickstream events into MongoDB.", flush=True)
-        count += event_count
+            if sessions_processed % batch_size == 0:
+                print(f"  Batched {event_count} events across {sessions_processed} sessions...", flush=True)
 
-    return count
+        print(f"[OK] Loaded {event_count} clickstream events across {sessions_processed} sessions.", flush=True)
+        total_count += event_count
+
+    return total_count
 
 
 # ============================================================
@@ -307,8 +382,9 @@ async def load_clickstream_to_mongo(batch_size: int = 5000):
 # ============================================================
 def run_data_loader():
     """Run the full data ingestion pipeline."""
+    mode_str = "DEMO MODE (fast)" if DEMO_MODE else "FULL DATASET (slow)"
     print("=" * 60, flush=True)
-    print("[DATA LOADER] E-Commerce Data Loader", flush=True)
+    print(f"[DATA LOADER] E-Commerce Data Loader — {mode_str}", flush=True)
     print("=" * 60, flush=True)
 
     # Ensure PostgreSQL tables exist before loading
