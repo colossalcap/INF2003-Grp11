@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { BrowserRouter, Routes, Route, Link, useNavigate } from 'react-router-dom'
 import Login from './components/Login'
 import ProductList from './components/ProductList'
@@ -6,9 +6,22 @@ import Cart from './components/Cart'
 import AdminDashboard from './components/AdminDashboard'
 import * as api from './api'
 
+function loadCart() {
+  try {
+    const saved = localStorage.getItem('cart')
+    return saved ? JSON.parse(saved) : []
+  } catch { return [] }
+}
+
 function App() {
   const [user, setUser] = useState(null)
   const [token, setToken] = useState(localStorage.getItem('token'))
+  const [cartItems, setCartItems] = useState(loadCart)
+
+  // Persist cart to localStorage on every change
+  useEffect(() => {
+    localStorage.setItem('cart', JSON.stringify(cartItems))
+  }, [cartItems])
 
   useEffect(() => {
     if (token) {
@@ -32,10 +45,55 @@ function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('token')
+    localStorage.removeItem('cart')
     api.setAuthToken(null)
     setToken(null)
     setUser(null)
+    setCartItems([])
   }
+
+  // Cart management functions
+  const addToCart = useCallback((product, quantity = 1) => {
+    setCartItems(prev => {
+      const existing = prev.find(item => item.product_id === product.product_id)
+      if (existing) {
+        return prev.map(item =>
+          item.product_id === product.product_id
+            ? { ...item, quantity: Math.min(item.quantity + quantity, item.stock_quantity) }
+            : item
+        )
+      }
+      return [...prev, {
+        product_id: product.product_id,
+        category: product.category,
+        unit_price: product.unit_price,
+        stock_quantity: product.stock_quantity,
+        quantity: Math.min(quantity, product.stock_quantity),
+      }]
+    })
+  }, [])
+
+  const removeFromCart = useCallback((productId) => {
+    setCartItems(prev => prev.filter(item => item.product_id !== productId))
+  }, [])
+
+  const updateCartQuantity = useCallback((productId, quantity) => {
+    if (quantity <= 0) {
+      removeFromCart(productId)
+      return
+    }
+    setCartItems(prev => prev.map(item =>
+      item.product_id === productId
+        ? { ...item, quantity: Math.min(quantity, item.stock_quantity) }
+        : item
+    ))
+  }, [removeFromCart])
+
+  const clearCart = useCallback(() => {
+    setCartItems([])
+  }, [])
+
+  const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0)
 
   return (
     <BrowserRouter>
@@ -49,7 +107,17 @@ function App() {
 
           {user ? (
             <>
-              <Link to="/cart">Cart</Link>
+              <Link to="/cart">
+                Cart{cartCount > 0 && (
+                  <span style={{
+                    background: '#ef4444', color: 'white', borderRadius: '50%',
+                    padding: '0.1rem 0.4rem', fontSize: '0.7rem', marginLeft: '0.25rem',
+                    fontWeight: 700, verticalAlign: 'middle'
+                  }}>
+                    {cartCount}
+                  </span>
+                )}
+              </Link>
               {user.role === 'admin' && <Link to="/admin">Admin</Link>}
 
               <span style={{ color: '#475569', margin: '0 0.2rem', fontSize: '1.2rem' }}>|</span>
@@ -76,9 +144,19 @@ function App() {
 
       <div className="container">
         <Routes>
-          <Route path="/" element={<ProductList user={user} />} />
+          <Route path="/" element={
+            <ProductList user={user} cartItems={cartItems} addToCart={addToCart} />
+          } />
           <Route path="/login" element={<Login onLogin={handleLogin} />} />
-          <Route path="/cart" element={<Cart user={user} />} />
+          <Route path="/cart" element={
+            <Cart
+              user={user}
+              cartItems={cartItems}
+              updateCartQuantity={updateCartQuantity}
+              removeFromCart={removeFromCart}
+              clearCart={clearCart}
+            />
+          } />
           <Route path="/admin" element={<AdminDashboard user={user} />} />
         </Routes>
       </div>

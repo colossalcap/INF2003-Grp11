@@ -19,7 +19,7 @@ function getStockClass(qty) {
   return 'stock-low'
 }
 
-export default function ProductList({ user }) {
+export default function ProductList({ user, cartItems, addToCart }) {
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
   const [selectedCategory, setSelectedCategory] = useState('')
@@ -64,14 +64,18 @@ export default function ProductList({ user }) {
     loadProducts()
   }
 
-  const handleAddToCart = async (productId) => {
+  const cartMap = {}
+  cartItems.forEach(item => { cartMap[item.product_id] = item.quantity })
+
+  const handleAddToCart = async (product) => {
     if (!user) { showToast('Please login to add items to cart.', 'warning'); return }
     try {
-      const res = await api.recordEvent('add_to_cart', productId, sessionId.current)
+      const res = await api.recordEvent('add_to_cart', product.product_id, sessionId.current)
+      addToCart(product, 1)
       if (res.fraud_alert) {
         showToast(`⚠️ Fraud alert: ${res.fraud_alert.reason}`, 'warning')
       } else {
-        showToast(`Added Product #${productId} to cart!`, 'success')
+        showToast(`Added Product #${product.product_id} to cart!`, 'success')
       }
     } catch (err) {
       showToast('Failed to record event.', 'error')
@@ -80,19 +84,24 @@ export default function ProductList({ user }) {
 
   const handleCheckout = async () => {
     if (!user) { showToast('Please login to checkout.', 'warning'); return }
-    if (products.length === 0) return
+    if (cartItems.length === 0) { showToast('Your cart is empty. Add some products first!', 'warning'); return }
 
     try {
-      const items = products.slice(0, 3).map(p => ({
-        product_id: p.product_id,
-        quantity: 1,
+      const items = cartItems.map(item => ({
+        product_id: item.product_id,
+        quantity: item.quantity,
       }))
 
       await api.createOrder(items)
-      showToast('Order placed successfully!', 'success')
+      showToast(`Order placed! ${cartItems.length} items purchased.`, 'success')
 
       await api.recordEvent('checkout', null, sessionId.current)
       await api.recordEvent('purchase', null, sessionId.current)
+
+      // Clear local cart
+      cartItems.forEach(item => addToCart(item, -999)) // will be fixed by App clearCart
+      localStorage.removeItem('cart')
+      window.location.reload()
     } catch (err) {
       showToast('Checkout failed: ' + (err.response?.data?.detail || err.message), 'error')
     }
@@ -102,7 +111,6 @@ export default function ProductList({ user }) {
 
   return (
     <div>
-      {/* Toast */}
       {toast && (
         <div className="toast-container">
           <div className={`toast toast-${toast.type}`}>
@@ -115,7 +123,7 @@ export default function ProductList({ user }) {
         <h2>Product Catalog</h2>
         {user && (
           <button className="btn btn-success" onClick={handleCheckout}>
-            🛒 Checkout (Sample Order)
+            🛒 Checkout ({cartItems.reduce((s,i) => s+i.quantity, 0)} items)
           </button>
         )}
       </div>
@@ -156,8 +164,20 @@ export default function ProductList({ user }) {
             {products.map(p => {
               const icon = CATEGORY_ICONS[p.category] || DEFAULT_ICON
               const stockClass = getStockClass(p.stock_quantity)
+              const inCartQty = cartMap[p.product_id] || 0
               return (
                 <div key={p.product_id} className="product-card">
+                  {inCartQty > 0 && (
+                    <span style={{
+                      position: 'absolute', top: '0.4rem', right: '0.4rem',
+                      background: 'var(--success)', color: 'white', borderRadius: '50%',
+                      width: '22px', height: '22px', display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', fontSize: '0.7rem', fontWeight: 700,
+                      boxShadow: 'var(--shadow-sm)', zIndex: 1
+                    }}>
+                      {inCartQty}
+                    </span>
+                  )}
                   <div className="product-icon">{icon}</div>
                   <h4>Product #{p.product_id}</h4>
                   <p className="category">{p.category}</p>
@@ -168,9 +188,9 @@ export default function ProductList({ user }) {
                   {user && (
                     <button
                       className="btn btn-primary btn-sm btn-block mt-1"
-                      onClick={() => handleAddToCart(p.product_id)}
+                      onClick={() => handleAddToCart(p)}
                     >
-                      🛒 Add to Cart
+                      {inCartQty > 0 ? `🛒 Add More (${inCartQty})` : '🛒 Add to Cart'}
                     </button>
                   )}
                 </div>
