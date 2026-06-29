@@ -104,11 +104,12 @@ docker exec -it ecommerce-backend python data_loader.py
 
 | Role | Username | Password | How to get |
 |------|----------|----------|------------|
-| **Admin** | Register any account, then promote: `docker exec ecommerce-backend python promote_admin.py <username>` | — | Or use a pre-promoted account from test suite |
+| **Admin** | `user_1` | `password123` | Pre-configured: the first data-loader account is automatically an admin |
+| **Admin** | Any account | — | Register any account, then promote: `docker exec ecommerce-backend python promote_admin.py <username>` |
 | **Customer** | Register at `/login` | — | Create your own account |
-| **Legacy** | `user_1` | `password123` | From data loader (customer role only) |
+| **Legacy** | `user_2`, `user_3`, … | `password123` | From data loader (customer role) |
 
-> ⚠️ Legacy accounts from the data loader have **customer** role by default. To access the **Admin Dashboard**, register a new account and promote it to admin using the command above.
+> 💡 **`user_1` is already an admin!** Other legacy accounts (`user_2`, `user_3`, …) have the **customer** role. To grant admin to any account, use the promotion command above.
 
 ### �🔄 Reset Databases (Fresh Start)
 
