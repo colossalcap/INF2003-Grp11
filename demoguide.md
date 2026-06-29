@@ -221,9 +221,10 @@ ecommerce-backend | 🚀 Starting E-Commerce Analytics Platform...
 
 | Role | Username | Password | Notes |
 |------|----------|----------|-------|
-| Admin | `testuser123` | `securepass123` | Pre-promoted to admin |
+| Admin | `user_1` | `password123` | First data-loader account, pre-configured as admin |
+| Admin | `testuser123` | `securepass123` | Pre-promoted to admin (alternative) |
 | Customer | Register any new account | — | Default role is "customer" |
-| Legacy | `user_1` | `password123` | From data loader (customer role) |
+| Legacy | `user_2`, `user_3`, … | `password123` | From data loader (customer role) |
 
 ### Key URLs
 

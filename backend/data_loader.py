@@ -82,7 +82,7 @@ def load_customers_postgres(batch_size: int = 1000):
                     email=str(row.get("email", f"user{csv_id}@example.com")),
                     password_hash=SHARED_PASSWORD_HASH,
                     display_name=str(row.get("name", f"User {csv_id}")),
-                    role="customer",
+                    role="admin" if csv_id == 1 else "customer",
                 )
                 db.add(user)
 
@@ -194,7 +194,7 @@ def load_orders_postgres(batch_size: int = 500):
                     email=f"user{int_cid}@ecommerce.local",
                     password_hash=SHARED_HASH,
                     display_name=f"Customer {int_cid}",
-                    role="customer",
+                    role="admin" if int_cid == 1 else "customer",
                 )
                 db.add(user)
 
