@@ -6,9 +6,9 @@ services:
     image: postgres:15
     container_name: ecommerce-postgres
     environment:
-      POSTGRES_USER: ecommerce_user
-      POSTGRES_PASSWORD: ecommerce_pass
-      POSTGRES_DB: ecommerce_db
+      POSTGRES_USER: ${POSTGRES_USER:-ecommerce_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ecommerce_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-ecommerce_db}
     ports:
       - "5432:5432"
     volumes:
@@ -27,7 +27,7 @@ services:
     image: mongo:7
     container_name: ecommerce-mongodb
     environment:
-      MONGO_INITDB_DATABASE: ecommerce_nosql
+      MONGO_INITDB_DATABASE: ${MONGO_DB:-ecommerce_nosql}
     ports:
       - "27017:27017"
     volumes:
@@ -47,14 +47,14 @@ services:
       dockerfile: Dockerfile
     container_name: ecommerce-backend
     environment:
-      DATABASE_URL: postgresql://ecommerce_user:ecommerce_pass@postgres:5432/ecommerce_db
-      MONGO_URI: mongodb://mongodb:27017
-      MONGO_DB: ecommerce_nosql
-      JWT_SECRET_KEY: change-this-to-a-random-secret-key
-      JWT_ALGORITHM: HS256
-      JWT_EXPIRE_MINUTES: "60"
-      FRAUD_EVENT_THRESHOLD: "10"
-      FRAUD_TIME_WINDOW_SECONDS: "60"
+      DATABASE_URL: ${DATABASE_URL:-postgresql://ecommerce_user:ecommerce_pass@postgres:5432/ecommerce_db}
+      MONGO_URI: ${MONGO_URI:-mongodb://mongodb:27017}
+      MONGO_DB: ${MONGO_DB:-ecommerce_nosql}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-this-to-a-random-secret-key}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_EXPIRE_MINUTES: "${JWT_EXPIRE_MINUTES:-60}"
+      FRAUD_EVENT_THRESHOLD: "${FRAUD_EVENT_THRESHOLD:-10}"
+      FRAUD_TIME_WINDOW_SECONDS: "${FRAUD_TIME_WINDOW_SECONDS:-60}"
     ports:
       - "8000:8000"
     depends_on:
@@ -93,10 +93,11 @@ services:
       dockerfile: Dockerfile
     container_name: ecommerce-data-loader
     environment:
-      DATABASE_URL: postgresql://ecommerce_user:ecommerce_pass@postgres:5432/ecommerce_db
-      MONGO_URI: mongodb://mongodb:27017
-      MONGO_DB: ecommerce_nosql
+      DATABASE_URL: ${DATABASE_URL:-postgresql://ecommerce_user:ecommerce_pass@postgres:5432/ecommerce_db}
+      MONGO_URI: ${MONGO_URI:-mongodb://mongodb:27017}
+      MONGO_DB: ${MONGO_DB:-ecommerce_nosql}
       PYTHONUNBUFFERED: "1"
+      DEMO_MODE: ${DEMO_MODE:-true}
     depends_on:
       postgres:
         condition: service_healthy

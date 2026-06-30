@@ -4,8 +4,8 @@ INF2003 Group 11 — Data Loader
 Ingests CSV files into PostgreSQL and MongoDB.
 Reads from data/ directory.
 
-Performance: Set DEMO_MODE=True for lecturer demos (~1-2 min).
-             Set DEMO_MODE=False for full dataset (~20 min).
+Performance: Set DEMO_MODE=true in .env or docker-compose for lecturer demos (~50s).
+             Set DEMO_MODE=false for full dataset (~20 min).
 ============================================================
 """
 
@@ -26,8 +26,10 @@ from services.nosql_service import get_mongo_db
 
 # ============================================================
 # CONFIGURATION — Toggle demo mode for fast lecturer setup
+# Set DEMO_MODE env var (in .env or docker-compose) to "true" or "false"
 # ============================================================
-DEMO_MODE = True  # Set to False to load the full 275K+ row dataset
+import os
+DEMO_MODE = os.getenv("DEMO_MODE", "true").lower() in ("true", "1", "yes")
 
 # Row limits in demo mode (full dataset if DEMO_MODE=False)
 DEMO_CUSTOMERS = 2000       # Full: 20,000
