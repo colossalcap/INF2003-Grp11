@@ -12,7 +12,6 @@ Generates matplotlib bar chart saved to plots/benchmark_results.png
 import time
 import threading
 import asyncio
-from datetime import datetime
 from pathlib import Path
 
 import matplotlib
@@ -21,7 +20,6 @@ import matplotlib.pyplot as plt
 
 from sqlalchemy import text
 
-from config import settings
 from models.relational import SessionLocal, Product
 from services.nosql_service import track_clickstream_event, get_mongo_db
 
@@ -105,7 +103,7 @@ def benchmark_postgres_hotspot(n_threads: int = 50, iterations_per_thread: int =
     Simulate 1,000 rapid UPDATEs on a single product in PostgreSQL
     across multiple threads. Measures transactions per second under contention.
     """
-    print(f"\n📊 Benchmark 2: Concurrent hotspot updates on PostgreSQL...")
+    print("\n📊 Benchmark 2: Concurrent hotspot updates on PostgreSQL...")
     print(f"   {n_threads} threads × {iterations_per_thread} updates = {n_threads * iterations_per_thread} total")
 
     # Ensure we have a product with enough stock
@@ -157,7 +155,7 @@ def benchmark_complex_join_postgres():
     Execute a 5-table JOIN query on PostgreSQL and measure execution time.
     Joins: orders -> customers -> order_items -> products.
     """
-    print(f"\n📊 Benchmark 3: Complex 5-table JOIN query on PostgreSQL...")
+    print("\n📊 Benchmark 3: Complex 5-table JOIN query on PostgreSQL...")
 
     query = text("""
         SELECT
@@ -209,7 +207,7 @@ async def benchmark_complex_aggregation_mongo():
     MongoDB aggregation pipeline as NoSQL equivalent.
     Demonstrates structural difference: no JOINs, uses $lookup.
     """
-    print(f"\n📊 Benchmark 3b: MongoDB aggregation pipeline...")
+    print("\n📊 Benchmark 3b: MongoDB aggregation pipeline...")
 
     db = await get_mongo_db()
 

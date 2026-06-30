@@ -789,7 +789,7 @@ def main():
     # ── Summary ──────────────────────────────────────────
     total = PASS + FAIL
     print(f"\n{'═'*60}")
-    print(f"  RESULTS")
+    print("  RESULTS")
     print(f"{'═'*60}")
     print(f"  ✅ Passed:  {PASS}/{total}")
     print(f"  ❌ Failed:  {FAIL}/{total}")
@@ -802,7 +802,7 @@ def main():
             print(f"     • {err}")
 
     if FAIL == 0:
-        print(f"\n  🎉 ALL TESTS PASSED!")
+        print("\n  🎉 ALL TESTS PASSED!")
     else:
         print(f"\n  ⚠️  {FAIL} test(s) failed. See details above.")
 

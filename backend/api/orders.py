@@ -7,7 +7,7 @@ which triggers inventory check, deduction, and outbox events.
 """
 
 import uuid
-from typing import List, Optional
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel

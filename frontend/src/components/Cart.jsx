@@ -106,7 +106,7 @@ export default function Cart({ user, cartItems, updateCartQuantity, removeFromCa
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--gray-700)' }}>
               {totalItems} item{totalItems !== 1 ? 's' : ''} in cart
             </h3>
-            <button className="btn btn-ghost btn-sm" onClick={clearCart}>
+            <button id="clear-cart-btn" className="btn btn-ghost btn-sm" onClick={clearCart}>
               🗑️ Clear Cart
             </button>
           </div>
@@ -161,6 +161,7 @@ export default function Cart({ user, cartItems, updateCartQuantity, removeFromCa
                       </td>
                       <td>
                         <button
+                          id={`remove-btn-${item.product_id}`}
                           className="btn btn-ghost btn-sm"
                           onClick={() => removeFromCart(item.product_id)}
                           style={{ color: 'var(--danger)' }}
@@ -187,10 +188,11 @@ export default function Cart({ user, cartItems, updateCartQuantity, removeFromCa
           </div>
 
           <div className="flex-between mt-3">
-            <button className="btn btn-outline" onClick={() => navigate('/')}>
+            <button id="continue-shopping-btn" className="btn btn-outline" onClick={() => navigate('/')}>
               ← Continue Shopping
             </button>
             <button
+              id="checkout-btn"
               className="btn btn-success btn-lg"
               onClick={handleCheckout}
               disabled={loading || cartItems.length === 0}

@@ -7,7 +7,7 @@ fraud detection, and indexes.
 """
 
 from datetime import datetime, timedelta
-from typing import Optional, List, Dict
+from typing import Optional, List
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 
@@ -187,7 +187,6 @@ async def compute_funnel_metrics() -> List[dict]:
         return []
 
     facet = result[0]
-    stages = ["page_view", "add_to_cart", "checkout", "purchase"]
     metrics = []
 
     # Map facet keys to stage names

@@ -6,12 +6,12 @@ audit trail queries, triggers execution.
 ============================================================
 """
 
-from typing import List, Dict, Optional
+from typing import List
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from models.relational import (
-    Customer, Product, Order, OrderItem, Alert, OrderAuditLog, Outbox,
+    Alert, OrderAuditLog,
 )
 
 

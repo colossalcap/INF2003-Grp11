@@ -5,14 +5,12 @@ FastAPI Application Entry Point
 ============================================================
 """
 
-import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from config import settings
 from models.relational import Base, engine, SessionLocal
 from services.sync_service import start_outbox_processor, stop_outbox_processor
 from services.nosql_service import init_mongo_indexes

@@ -62,6 +62,7 @@ export default function Login({ onLogin }) {
           <div className="form-group">
             <label>Username</label>
             <input
+              id="login-username"
               value={username}
               onChange={e => setUsername(e.target.value)}
               placeholder="Enter your username"
@@ -74,6 +75,7 @@ export default function Login({ onLogin }) {
               <div className="form-group">
                 <label>Email</label>
                 <input
+                  id="login-email"
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
@@ -84,6 +86,7 @@ export default function Login({ onLogin }) {
               <div className="form-group">
                 <label>Display Name</label>
                 <input
+                  id="login-display-name"
                   value={displayName}
                   onChange={e => setDisplayName(e.target.value)}
                   placeholder="How should we call you?"
@@ -95,6 +98,7 @@ export default function Login({ onLogin }) {
           <div className="form-group">
             <label>Password</label>
             <input
+              id="login-password"
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
@@ -104,6 +108,7 @@ export default function Login({ onLogin }) {
           </div>
 
           <button
+            id="login-submit-btn"
             type="submit"
             className="btn btn-primary btn-block btn-lg"
             disabled={loading}
@@ -120,7 +125,7 @@ export default function Login({ onLogin }) {
 
         <div className="auth-toggle">
           {isRegister ? 'Already have an account?' : "Don't have an account?"}{' '}
-          <a href="#" onClick={(e) => { e.preventDefault(); setIsRegister(!isRegister); setError('') }}>
+          <a id="auth-toggle-link" href="#" onClick={(e) => { e.preventDefault(); setIsRegister(!isRegister); setError('') }}>
             {isRegister ? 'Sign In' : 'Register'}
           </a>
         </div>

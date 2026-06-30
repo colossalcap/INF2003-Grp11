@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS customers (
 
 CREATE TABLE IF NOT EXISTS products (
     product_id      VARCHAR(50) PRIMARY KEY,
+    name            VARCHAR(255) NOT NULL DEFAULT 'Unknown Product',
     category        VARCHAR(100) NOT NULL,
     unit_price      DOUBLE PRECISION NOT NULL,
     stock_quantity  INTEGER NOT NULL CHECK (stock_quantity >= 0)

@@ -154,7 +154,7 @@ ecommerce-backend | 🚀 Starting E-Commerce Analytics Platform...
 
 **What to show:** All 5 analytics tabs with real data from both databases.
 
-> **Note:** You need an admin account. Log out and log in as `testuser123` / `securepass123` (or any account promoted to admin).
+> **Note:** You need an admin account. Log out and log in as `user_1` / `password123` (or any account promoted to admin).
 
 ### 8.1 RFM Segmentation (PostgreSQL)
 
@@ -222,7 +222,6 @@ ecommerce-backend | 🚀 Starting E-Commerce Analytics Platform...
 | Role | Username | Password | Notes |
 |------|----------|----------|-------|
 | Admin | `user_1` | `password123` | First data-loader account, pre-configured as admin |
-| Admin | `testuser123` | `securepass123` | Pre-promoted to admin (alternative) |
 | Customer | Register any new account | — | Default role is "customer" |
 | Legacy | `user_2`, `user_3`, … | `password123` | From data loader (customer role) |
 

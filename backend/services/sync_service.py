@@ -7,10 +7,8 @@ and synchronizes data to MongoDB (customer_order_summary).
 """
 
 import asyncio
-from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import text
 
 from config import settings
 from models.relational import SessionLocal, Outbox

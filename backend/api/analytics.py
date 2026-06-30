@@ -6,7 +6,7 @@ fraud alerts, and audit trail.
 ============================================================
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from models.relational import get_db, User

@@ -9,8 +9,9 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 
-from models.relational import get_db, Product, Customer
+from models.relational import get_db, Product
 
 router = APIRouter()
 
@@ -29,7 +30,12 @@ async def list_products(
     if category:
         query = query.filter(Product.category.ilike(f"%{category}%"))
     if search:
-        query = query.filter(Product.product_id.ilike(f"%{search}%"))
+        query = query.filter(
+            or_(
+                Product.product_id.ilike(f"%{search}%"),
+                Product.name.ilike(f"%{search}%")
+            )
+        )
 
     total = query.count()
     products = query.offset((page - 1) * limit).limit(limit).all()

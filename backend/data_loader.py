@@ -9,7 +9,6 @@ Performance: Set DEMO_MODE=True for lecturer demos (~1-2 min).
 ============================================================
 """
 
-import csv
 import re
 import uuid
 import asyncio
@@ -18,14 +17,12 @@ from pathlib import Path
 from collections import defaultdict
 
 import pandas as pd
-from sqlalchemy import text
 
-from config import settings
 from models.relational import (
     SessionLocal, engine, Base, Customer, Product, Order, OrderItem, User,
 )
 from models.nosql_schemas import ActionType
-from services.nosql_service import track_clickstream_event, get_mongo_db
+from services.nosql_service import get_mongo_db
 
 # ============================================================
 # CONFIGURATION — Toggle demo mode for fast lecturer setup
@@ -274,7 +271,7 @@ async def load_clickstream_to_mongo(batch_size: int = 5000):
     sessions_path = DATA_DIR / "sessions.csv"
 
     if not events_path.exists() and not sessions_path.exists():
-        print(f"[WARN] No clickstream files found. Skipping MongoDB load.", flush=True)
+        print("[WARN] No clickstream files found. Skipping MongoDB load.", flush=True)
         return 0
 
     db = await get_mongo_db()
@@ -313,13 +310,13 @@ async def load_clickstream_to_mongo(batch_size: int = 5000):
                 print(f"  Bulk-inserted {len(result.inserted_ids)} session documents.", flush=True)
             except Exception:
                 # Duplicate key errors are fine — sessions may already exist
-                print(f"  Sessions exist, skipping bulk insert.", flush=True)
+                print("  Sessions exist, skipping bulk insert.", flush=True)
 
     # ----------------------------------------------------------
     # Phase 2: Batch-load events grouped by session
     # ----------------------------------------------------------
     if events_path.exists():
-        print(f"  Reading clickstream events...", flush=True)
+        print("  Reading clickstream events...", flush=True)
         df_events = pd.read_csv(events_path, nrows=_nrows(DEMO_CLICKSTREAM_EVENTS))
         print(f"  Grouping {len(df_events)} events by session...", flush=True)
 
