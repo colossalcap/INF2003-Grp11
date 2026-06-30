@@ -35,7 +35,7 @@ ecommerce-data-loader exited with code 0
 ecommerce-backend | 🚀 Starting E-Commerce Analytics Platform...
 ```
 
-> **The data loader takes ~1.5 minutes in demo mode (default).** It loads 2K customers, 1,197 products, 3K orders, and 40K clickstream events — enough to demonstrate ALL features. If you need the full 275K-row dataset, see the README.
+> **The data loader takes ~50 seconds in demo mode (default).** It loads 2K customers, 1,197 products, 3K orders, and 40K clickstream events — enough to demonstrate ALL features. If you need the full 275K-row dataset, see the README.
 
 ### What's running:
 
@@ -103,7 +103,7 @@ ecommerce-backend | 🚀 Starting E-Commerce Analytics Platform...
 
 | Step | Action | What to say |
 |------|--------|-------------|
-| 1 | Click "🛒 Checkout (Sample Order)" | "Now let's place an order. This is where PostgreSQL shines." |
+| 1 | Click "� Place Order" | "Now let's place an order. This is where PostgreSQL shines." |
 | 2 | Point out the success message | "Order placed successfully! But what just happened behind the scenes?" |
 | 3 | **Explain the trigger cascade:** | |
 | | — Trigger 1: `trg_check_stock` | "Before inserting order items, PostgreSQL checks that stock is sufficient. If it's not, the entire transaction is rejected." |
@@ -208,10 +208,10 @@ ecommerce-backend | 🚀 Starting E-Commerce Analytics Platform...
 
 | Step | Action | What to say |
 |------|--------|-------------|
-| 1 | In terminal: `docker-compose down` | "Let me show you how easy it is to reset everything." |
-| 2 | `docker-compose --profile reset up reset-db` | "This wipes both databases completely — all tables in PostgreSQL, all collections in MongoDB." |
-| 3 | `docker-compose up` | "Starting fresh — the data loader automatically reloads all 275,000 rows from CSV files." |
-| 4 | Wait ~2 min, refresh the browser | "Everything is back to a clean state, ready for the next demo." |
+| 1 | In terminal: `docker compose down` | "Let me show you how easy it is to reset everything." |
+| 2 | `docker compose --profile reset up reset-db` | "This wipes both databases completely — all tables in PostgreSQL, all collections in MongoDB." |
+| 3 | `docker compose up` | "Starting fresh — the data loader automatically reloads data from CSV files." |
+| 4 | Wait ~50s, refresh the browser | "Everything is back to a clean state, ready for the next demo." |
 
 ---
 
@@ -240,9 +240,9 @@ ecommerce-backend | 🚀 Starting E-Commerce Analytics Platform...
 
 | Command | Purpose |
 |---------|---------|
-| `docker-compose up` | Start everything |
-| `docker-compose down` | Stop everything |
-| `docker-compose --profile reset up reset-db` | Wipe databases |
+| `docker compose up` | Start everything |
+| `docker compose down` | Stop everything |
+| `docker compose --profile reset up reset-db` | Wipe databases |
 | `docker exec -it ecommerce-backend python tests/test_suite.py` | Run 161 tests |
 | `docker exec -it ecommerce-backend python benchmark/benchmark_runner.py` | Run benchmarks |
 | `docker restart ecommerce-frontend` | Restart frontend |

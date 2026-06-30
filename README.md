@@ -5,7 +5,7 @@
 **Dual-Database Analytics Platform — PostgreSQL (ACID) + MongoDB (BASE)**
 
 [![Tests](https://img.shields.io/badge/tests-161%2F161%20passed-brightgreen)](#-test-suite)
-[![Docker](https://img.shields.io/badge/docker-4%20containers-blue)](https://www.docker.com/)
+[![Docker](https://img.shields.io/badge/docker-5%20containers-blue)](https://www.docker.com/)
 [![Python](https://img.shields.io/badge/python-3.11+-yellow)](https://www.python.org/)
 [![React](https://img.shields.io/badge/react-18+-61dafb)](https://react.dev/)
 [![INF2003](https://img.shields.io/badge/module-INF2003%20SIT-red)]()
@@ -43,10 +43,10 @@
 
 ```bash
 cd INF2003-Grp11
-docker-compose up
+docker compose up
 ```
 
-This starts all 4 containers:
+This starts all 5 containers:
 
 | Container | Technology | Port | Purpose |
 |-----------|-----------|------|---------|
