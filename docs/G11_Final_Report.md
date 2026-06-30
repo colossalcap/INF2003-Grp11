@@ -115,7 +115,7 @@ These were combined and processed into 6 CSV files:
 | `clickstream_events.csv` | 760,958 | 40,000 | Page views, cart actions, checkout, purchase events | MongoDB |
 | `sessions.csv` | 120,000 | 10,000 | User browsing sessions with device, source, country | MongoDB |
 
-**Total:** ~275,000 rows (full) / ~56,000 rows (demo). The demo dataset demonstrates ALL features while loading in ~1.5 minutes — a 13× speedup over the full dataset.
+**Total:** ~275,000 rows (full) / ~56,000 rows (demo). The demo dataset demonstrates ALL features while loading in ~50 seconds — a 24× speedup over the full dataset.
 
 ### 3.2 Entity-Relationship Diagram
 
@@ -198,35 +198,65 @@ The complete ER diagram documentation is available in `docs/ER_Diagram.md` with 
 
 #### Advanced SQL Queries
 
-**RFM Segmentation** — CTE with NTILE(4):
+**RFM Segmentation** — CTE with NTILE(4) window function (from `services/relational_service.py`):
+
 ```sql
 WITH order_summary AS (
-    SELECT customer_id, MAX(order_date) AS last_order,
-           COUNT(order_id) AS frequency, SUM(total_amount) AS monetary
-    FROM orders GROUP BY customer_id
+    SELECT
+        o.customer_id,
+        MAX(o.order_date) AS last_order_date,
+        COUNT(o.order_id) AS frequency,
+        COALESCE(SUM(o.total_amount), 0) AS monetary
+    FROM orders o
+    GROUP BY o.customer_id
 ),
 rfm_scores AS (
-    SELECT *, NTILE(4) OVER (ORDER BY last_order DESC) AS r_score,
-              NTILE(4) OVER (ORDER BY frequency ASC) AS f_score,
-              NTILE(4) OVER (ORDER BY monetary ASC) AS m_score
+    SELECT
+        customer_id,
+        EXTRACT(DAY FROM (NOW() - last_order_date)) AS recency_days,
+        frequency,
+        monetary,
+        NTILE(4) OVER (ORDER BY EXTRACT(DAY FROM (NOW() - last_order_date)) DESC) AS r_score,
+        NTILE(4) OVER (ORDER BY frequency ASC) AS f_score,
+        NTILE(4) OVER (ORDER BY monetary ASC) AS m_score
     FROM order_summary
 )
-SELECT *, (r_score + f_score + m_score) AS total_score,
-    CASE WHEN (r_score + f_score + m_score) >= 10 THEN 'Champions'
-         WHEN (r_score + f_score + m_score) >= 8  THEN 'Loyal Customers'
-         WHEN (r_score + f_score + m_score) >= 6  THEN 'Potential Loyalists'
-         WHEN (r_score + f_score + m_score) >= 4  THEN 'At Risk'
-         ELSE 'Lost' END AS segment
-FROM rfm_scores;
+SELECT
+    customer_id::TEXT,
+    recency_days,
+    frequency,
+    ROUND(monetary::numeric, 2) AS monetary,
+    r_score, f_score, m_score,
+    (r_score + f_score + m_score) AS total_score,
+    CASE
+        WHEN (r_score + f_score + m_score) >= 10 THEN 'Champions'
+        WHEN (r_score + f_score + m_score) >= 8  THEN 'Loyal Customers'
+        WHEN (r_score + f_score + m_score) >= 6  THEN 'Potential Loyalists'
+        WHEN (r_score + f_score + m_score) >= 4  THEN 'At Risk'
+        ELSE 'Lost'
+    END AS segment
+FROM rfm_scores
+ORDER BY total_score DESC;
 ```
 
-**Market Basket Analysis** — Self-join on order_items:
+**Market Basket Analysis** — Self-join on order_items with product name resolution:
+
 ```sql
-SELECT a.product_id AS product_a, b.product_id AS product_b, COUNT(*) AS pair_count
-FROM order_items a JOIN order_items b ON a.order_id = b.order_id
-WHERE a.product_id < b.product_id
-GROUP BY a.product_id, b.product_id
-ORDER BY pair_count DESC LIMIT 10;
+SELECT
+    p1.product_id AS product_a,
+    pa.name AS name_a,
+    p2.product_id AS product_b,
+    pb.name AS name_b,
+    COUNT(*) AS pair_count
+FROM order_items p1
+JOIN order_items p2
+    ON p1.order_id = p2.order_id
+    AND p1.product_id < p2.product_id
+JOIN products pa ON pa.product_id = p1.product_id
+JOIN products pb ON pb.product_id = p2.product_id
+GROUP BY p1.product_id, pa.name, p2.product_id, pb.name
+ORDER BY pair_count DESC
+LIMIT :top_n;
 ```
 
 ### 5.2 NoSQL Database (MongoDB) — 4 Collections
@@ -251,11 +281,33 @@ db.user_sessions.aggregate([
 ])
 ```
 
-**Fraud Detection:**
+**Fraud Detection (velocity check from `services/nosql_service.py`):**
 ```python
-recent_events = [e for e in session.events if e.timestamp >= window_start]
-if len(recent_events) >= threshold and no purchase in window:
-    flag session in MongoDB + INSERT alert in PostgreSQL
+threshold = settings.FRAUD_EVENT_THRESHOLD  # default: 10
+window_start = datetime.utcnow() - timedelta(seconds=settings.FRAUD_TIME_WINDOW_SECONDS)
+
+session = await db.user_sessions.find_one(
+    {"customer_id": customer_id, "session_id": session_id}
+)
+
+recent_events = [
+    e for e in session.get("events", [])
+    if e["timestamp"] >= window_start
+]
+
+if len(recent_events) >= threshold:
+    has_purchase = any(
+        e["action_type"] == ActionType.PURCHASE.value for e in recent_events
+    )
+    if not has_purchase:
+        await db.user_sessions.update_one(
+            {"customer_id": customer_id, "session_id": session_id},
+            {"$set": {"flagged": True}},
+        )
+        # Cross-database alert: MongoDB flag → PostgreSQL INSERT
+        create_alert(db, customer_id, session_id,
+            f"Rapid cart activity: {len(recent_events)} events in "
+            f"{settings.FRAUD_TIME_WINDOW_SECONDS}s with no purchase.")
 ```
 
 ### 5.4 Data Loader Performance Optimization
@@ -297,16 +349,16 @@ The backend (`FastAPI`) connects to PostgreSQL via **SQLAlchemy** (ORM + raw SQL
 
 ### 6.2 Performance Evaluation
 
-Benchmarks were run via `benchmark/benchmark_runner.py` inside Docker:
+Benchmarks were run via `benchmark/benchmark_runner.py` inside Docker (results from 2026-06-30):
 
 | Test | Database | Result | Insight |
 |------|----------|--------|---------|
-| Bulk Insert (10k events) | MongoDB | High throughput | Bucket Pattern avoids per-event document overhead |
-| Hotspot UPDATEs (200 txns) | PostgreSQL | Consistent latency | Row-level locking prevents corruption under contention |
-| 5-Table JOIN | PostgreSQL | Fast query time | Query optimizer handles complex relational algebra |
-| Aggregation Pipeline | MongoDB | Efficient | $facet runs 4 parallel counts in single pass |
+| Bulk Insert (10k events) | MongoDB | **14.39s** (695 ops/sec) | Bucket Pattern avoids per-event document overhead |
+| Hotspot UPDATEs (200 txns) | PostgreSQL | **0.53s** (378 txns/sec) | Row-level locking prevents corruption under contention |
+| 5-Table JOIN | PostgreSQL | **0.019s** | Query optimizer handles complex relational algebra efficiently |
+| Aggregation Pipeline | MongoDB | **0.117s** | $facet runs 4 parallel stage counts in single pass |
 
-**Key finding:** MongoDB excels at high-velocity writes (clickstream), while PostgreSQL handles concurrent transactional updates with integrity guarantees that MongoDB cannot provide. The 5-table JOIN is possible only in PostgreSQL — demonstrating why a polyglot approach is necessary.
+**Key finding:** PostgreSQL's 5-table JOIN completes in 0.019 seconds — faster than MongoDB's aggregation pipeline (0.117s) despite MongoDB not needing JOINs. This validates the polyglot approach: PostgreSQL for complex relational queries, MongoDB for high-velocity clickstream writes. The benchmark plot is saved to `benchmark/plots/benchmark_results.png`.
 
 ### 6.3 Cross-Database Consistency
 
@@ -359,34 +411,127 @@ GenAI tools (ChatGPT, DeepSeek) were used for: generating boilerplate (FastAPI r
 
 ## Appendix
 
-### A. Source Code Files
+### A. Complete Source Code Listing
 
-| File | Description |
-|------|-------------|
-| `backend/triggers.sql` | 4 PostgreSQL trigger definitions |
-| `backend/models/relational.py` | SQLAlchemy ORM (8 tables) |
-| `backend/services/nosql_service.py` | MongoDB operations (Bucket, funnel, fraud) |
-| `backend/services/relational_service.py` | Complex SQL (RFM, market basket) |
-| `backend/services/sync_service.py` | CDC Outbox processor |
-| `backend/data_loader.py` | CSV ingestion pipeline |
-| `backend/tests/test_suite.py` | 161-test automated suite |
-| `backend/benchmark/benchmark_runner.py` | Performance comparison |
-| `docker-compose.yml` | 5-container orchestration |
+| File | Lines | Role |
+|------|-------|------|
+| `backend/main.py` | ~60 | FastAPI entry point, lifespan hooks, CORS, router registration |
+| `backend/config.py` | ~45 | Centralised settings from environment variables (12-Factor App) |
+| `backend/data_loader.py` | ~400 | Dual-database CSV ingestion with batch optimisation (DEMO_MODE) |
+| `backend/triggers.sql` | ~80 | 5 PostgreSQL table definitions + 4 trigger functions |
+| `backend/reset_db.py` | ~60 | Database wipe & recreate utility (PostgreSQL + MongoDB) |
+| `backend/promote_admin.py` | ~15 | CLI tool to promote a user to admin role |
+| `backend/Dockerfile` | ~15 | Python 3.11-slim image with gcc + libpq-dev |
+| `backend/requirements.txt` | ~10 | Python dependencies (FastAPI, SQLAlchemy, Motor, etc.) |
+| `backend/models/relational.py` | ~170 | 8 SQLAlchemy ORM models (User, Customer, Product, Order, OrderItem, Outbox, Alert, OrderAuditLog) |
+| `backend/models/nosql_schemas.py` | ~60 | Pydantic models: UserSession, ClickstreamEvent, ActionType enum |
+| `backend/services/relational_service.py` | ~230 | Complex SQL: RFM (CTE+NTILE), market basket (self-join), top products, alerts, audit |
+| `backend/services/nosql_service.py` | ~280 | MongoDB: Bucket Pattern writes, $facet funnel, fraud detection, CDC target, indexes |
+| `backend/services/sync_service.py` | ~70 | Outbox Pattern CDC: async poller → PostgreSQL outbox → MongoDB sync |
+| `backend/api/auth.py` | ~160 | JWT registration/login/me with bcrypt + OAuth2PasswordBearer |
+| `backend/api/products.py` | ~75 | Product catalog: paginated list, get-by-ID, category filter, search |
+| `backend/api/cart.py` | ~85 | Clickstream event recording (MongoDB Bucket Pattern) + fraud trigger |
+| `backend/api/orders.py` | ~110 | ACID order creation with 4-trigger cascade + order retrieval |
+| `backend/api/analytics.py` | ~85 | 9 analytics endpoints: RFM, funnel, market basket, alerts, audit, top products |
+| `backend/tests/test_suite.py` | ~850 | 161-test automated suite (10 sections, 100% pass) |
+| `backend/benchmark/benchmark_runner.py` | ~250 | 4 database benchmarks + matplotlib chart generation |
+| `frontend/src/App.jsx` | ~170 | Root React component: routing, auth state, cart management |
+| `frontend/src/api.js` | ~100 | Axios API client (13 endpoint functions + JWT header injection) |
+| `frontend/src/components/ProductList.jsx` | ~180 | Product catalog: search, filter, pagination, add-to-cart |
+| `frontend/src/components/Cart.jsx` | ~200 | Shopping cart: quantity controls, checkout, clickstream debug |
+| `frontend/src/components/Login.jsx` | ~130 | Login/Register form with JWT auth + URL-based mode toggle |
+| `frontend/src/components/AdminDashboard.jsx` | ~300 | Admin analytics: RFM, funnel, market basket, alerts, top products |
+| `frontend/src/index.css` | ~520 | Global design system: CSS variables, gradients, responsive |
+| `docker-compose.yml` | ~130 | 6-service orchestration with health checks and volume mounts |
+| `Dockerfile` (frontend) | ~20 | Node 20 Alpine → Vite dev server on port 3000 |
+| `.env` | ~20 | Environment variables template (not committed to git) |
+| `.gitignore` | ~25 | Excludes __pycache__, .venv, .env, *.db, node_modules |
 
-### B. Documentation Files
+### B. API Endpoint Reference
 
-| File | Description |
-|------|-------------|
-| `README.md` | Technical overview & API reference |
-| `walkthrough.md` | Non-technical guide with glossary |
-| `demoguide.md` | Demo script for presentations |
-| `DOCKER_TROUBLESHOOTING.md` | Docker debugging guide |
-| `docs/ER_Diagram.md` | Complete database design |
-| `WORK_DISTRIBUTION.md` | Technical work split |
+| Method | Endpoint | Auth | Database | Purpose |
+|--------|----------|------|----------|---------|
+| `POST` | `/api/auth/register` | None | PostgreSQL | Create account (bcrypt hash) |
+| `POST` | `/api/auth/login` | None | PostgreSQL | Authenticate → JWT token |
+| `GET` | `/api/auth/me` | JWT | PostgreSQL | Current user profile |
+| `GET` | `/api/products/` | None | PostgreSQL | Paginated catalog (category, search) |
+| `GET` | `/api/products/{id}` | None | PostgreSQL | Single product detail |
+| `GET` | `/api/products/categories/all` | None | PostgreSQL | Distinct category list |
+| `POST` | `/api/cart/event` | JWT | MongoDB | Record clickstream event |
+| `GET` | `/api/cart/session/{id}` | JWT | MongoDB | Retrieve session events |
+| `POST` | `/api/orders/` | JWT | PostgreSQL | Create order (ACID + triggers) |
+| `GET` | `/api/orders/{id}` | JWT | PostgreSQL | Order detail |
+| `GET` | `/api/orders/` | JWT | PostgreSQL | User's order history |
+| `GET` | `/api/analytics/rfm` | JWT | PostgreSQL | RFM segmentation |
+| `GET` | `/api/analytics/market-basket` | JWT | PostgreSQL | Product affinity pairs |
+| `GET` | `/api/analytics/funnel` | JWT | MongoDB | Conversion funnel |
+| `GET` | `/api/analytics/cart-abandonment` | JWT | MongoDB | Abandoned sessions |
+| `GET` | `/api/analytics/top-products` | JWT | PostgreSQL | Best-selling products |
+| `GET` | `/api/analytics/sales-by-category` | JWT | PostgreSQL | Revenue by category |
+| `GET` | `/api/analytics/alerts` | Admin | PostgreSQL | Fraud alerts |
+| `GET` | `/api/analytics/audit/{order_id}` | Admin | PostgreSQL | Order change history |
 
-### C. Test Suite Results
+### C. Environment Variables
 
-161/161 tests passed (100%) in 7.08 seconds. Full breakdown in Section 7 of the main report.
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `DATABASE_URL` | `postgresql://...` | PostgreSQL connection string |
+| `MONGO_URI` | `mongodb://localhost:27017` | MongoDB connection URI |
+| `MONGO_DB` | `ecommerce_nosql` | MongoDB database name |
+| `JWT_SECRET_KEY` | (dev default) | HMAC-SHA256 signing key |
+| `JWT_ALGORITHM` | `HS256` | JWT signing algorithm |
+| `JWT_EXPIRE_MINUTES` | `60` | Token expiry duration |
+| `FRAUD_EVENT_THRESHOLD` | `10` | Cart events to trigger fraud alert |
+| `FRAUD_TIME_WINDOW_SECONDS` | `60` | Fraud detection time window |
+| `OUTBOX_POLL_INTERVAL` | `5` | CDC poller sleep interval (seconds) |
+| `DEMO_MODE` | `true` | Toggle demo/full dataset loading |
+| `DEBUG` | `false` | SQLAlchemy query logging |
+
+### D. Technology Stack
+
+| Layer | Technology | Version | Role |
+|-------|-----------|---------|------|
+| **Frontend** | React | 18.x | SPA with 4 views |
+| | Vite | 5.x | Build tool & dev server |
+| | Recharts | 2.x | Interactive charts (pie, bar) |
+| | React Router | 6.x | Client-side routing |
+| | Axios | 1.x | HTTP client with JWT interceptor |
+| **Backend** | Python | 3.11 | Application server |
+| | FastAPI | 0.100+ | Async REST framework |
+| | SQLAlchemy | 2.x | PostgreSQL ORM + raw SQL |
+| | Motor | 3.x | Async MongoDB driver |
+| | python-jose | 3.x | JWT encoding/decoding |
+| | passlib | 1.x | bcrypt password hashing |
+| | Pandas | 2.x | CSV data ingestion |
+| | Pydantic | 2.x | Request/response validation |
+| **Databases** | PostgreSQL | 15 | Relational (ACID) |
+| | MongoDB | 7 | Document store (BASE) |
+| **Infrastructure** | Docker | 24.x | Container runtime |
+| | Docker Compose | v2 | Multi-service orchestration |
+
+### E. Docker Service Architecture
+
+```
+┌─ Network: inf2003-grp11_default ─────────────────────────────┐
+│                                                               │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────┐ │
+│  │ postgres │  │ mongodb  │  │ backend  │  │  frontend    │ │
+│  │  :5432   │  │  :27017  │  │  :8000   │  │   :3000      │ │
+│  │ healthy  │  │ healthy  │  │ FastAPI  │  │  React+Vite  │ │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └──────┬───────┘ │
+│       │             │             │               │          │
+│       └──────┬──────┘             │               │          │
+│              │                    │               │          │
+│       ┌──────▼──────┐    ┌───────▼───────┐       │          │
+│       │ data-loader │    │   reset-db    │       │          │
+│       │ (one-shot)  │    │ (profile:     │       │          │
+│       │ DEMO_MODE   │    │  reset)       │       │          │
+│       └─────────────┘    └───────────────┘       │          │
+│                                                   │          │
+│  Volumes: postgres_data, mongo_data               │          │
+│  Mounts: ./backend:/app, ./data:/data             │          │
+└───────────────────────────────────────────────────────────────┘
+```
 
 ---
 

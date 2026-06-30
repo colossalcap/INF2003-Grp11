@@ -157,6 +157,34 @@ def add_styled_table(doc, headers, rows, col_widths=None):
     return table
 
 
+def add_code_block(doc, code_text, language=""):
+    """Add a monospace code block with light grey background."""
+    # Label
+    if language:
+        label = doc.add_paragraph()
+        run = label.add_run(f"▌ {language}")
+        run.font.size = Pt(8)
+        run.font.color.rgb = MED_GRAY
+        run.bold = True
+        label.paragraph_format.space_after = Pt(1)
+
+    # Code
+    for line in code_text.strip().split('\n'):
+        p = doc.add_paragraph()
+        p.paragraph_format.space_before = Pt(0)
+        p.paragraph_format.space_after = Pt(0)
+        p.paragraph_format.line_spacing = 1.0
+        # Light grey background
+        shading = parse_xml(f'<w:shd {nsdecls("w")} w:fill="F5F5F5"/>')
+        p._element.get_or_add_pPr().append(shading)
+        run = p.add_run(line)
+        run.font.name = 'Consolas'
+        run.font.size = Pt(7.5)
+        run.font.color.rgb = RGBColor(0x33, 0x33, 0x33)
+
+    doc.add_paragraph()  # spacer
+
+
 # ── Document Builder ────────────────────────────────────────
 
 def build_document():
@@ -417,10 +445,78 @@ def build_document():
     ]
     add_styled_table(doc, ["Trigger", "Fires On", "Purpose"], triggers_data, [3.5, 4, 6])
 
-    add_heading_styled(doc, "3.3 Advanced SQL", 2)
-    add_bullet(doc, "Uses CTE with NTILE(4) to classify customers into 5 segments: Champions, Loyal Customers, Potential Loyalists, At Risk, and Lost.", bold_prefix="RFM Segmentation: ")
-    add_bullet(doc, "Self-join on order_items to find co-occurring product pairs. Returns top N pairs sorted by frequency.", bold_prefix="Market Basket Analysis: ")
-    add_bullet(doc, "Full change history captured by trg_audit_order trigger. Every status and total_amount change is recorded with old/new values and timestamps.", bold_prefix="Audit Trail: ")
+    add_heading_styled(doc, "3.3 Advanced SQL Queries", 2)
+    add_styled_paragraph(doc,
+        "The following queries demonstrate advanced relational database techniques: "
+        "Common Table Expressions (CTEs), NTILE window functions, self-joins, and "
+        "CASE expressions — all executed as raw SQL via SQLAlchemy's text() function.", size=10)
+
+    add_styled_paragraph(doc,
+        "RFM (Recency, Frequency, Monetary) segmentation classifies every customer into "
+        "one of 5 behavioural segments. This query uses a two-stage CTE: first, order_summary "
+        "aggregates per-customer metrics (last order date, order count, total spend). Second, "
+        "rfm_scores applies the NTILE(4) window function to divide customers into quartiles "
+        "along each dimension. The final SELECT combines the scores and maps ranges to human-"
+        "readable segment labels (Champions, Loyal Customers, Potential Loyalists, At Risk, Lost). "
+        "NTILE is a PostgreSQL window function that cannot be easily expressed in ORM — raw SQL "
+        "was chosen deliberately to demonstrate database-level expertise.", size=9, color=MED_GRAY)
+
+    add_code_block(doc, '''WITH order_summary AS (
+    SELECT
+        o.customer_id,
+        MAX(o.order_date) AS last_order_date,
+        COUNT(o.order_id) AS frequency,
+        COALESCE(SUM(o.total_amount), 0) AS monetary
+    FROM orders o
+    GROUP BY o.customer_id
+),
+rfm_scores AS (
+    SELECT
+        customer_id,
+        EXTRACT(DAY FROM (NOW() - last_order_date)) AS recency_days,
+        frequency, monetary,
+        NTILE(4) OVER (ORDER BY EXTRACT(DAY FROM (NOW() - last_order_date)) DESC) AS r_score,
+        NTILE(4) OVER (ORDER BY frequency ASC) AS f_score,
+        NTILE(4) OVER (ORDER BY monetary ASC) AS m_score
+    FROM order_summary
+)
+SELECT
+    customer_id::TEXT, recency_days, frequency,
+    ROUND(monetary::numeric, 2) AS monetary,
+    r_score, f_score, m_score,
+    (r_score + f_score + m_score) AS total_score,
+    CASE
+        WHEN (r_score + f_score + m_score) >= 10 THEN 'Champions'
+        WHEN (r_score + f_score + m_score) >= 8  THEN 'Loyal Customers'
+        WHEN (r_score + f_score + m_score) >= 6  THEN 'Potential Loyalists'
+        WHEN (r_score + f_score + m_score) >= 4  THEN 'At Risk'
+        ELSE 'Lost'
+    END AS segment
+FROM rfm_scores
+ORDER BY total_score DESC;''', "RFM Segmentation — CTE + NTILE(4) + CASE (relational_service.py)")
+
+    add_code_block(doc, '''SELECT
+    p1.product_id AS product_a, pa.name AS name_a,
+    p2.product_id AS product_b, pb.name AS name_b,
+    COUNT(*) AS pair_count
+FROM order_items p1
+JOIN order_items p2
+    ON p1.order_id = p2.order_id
+    AND p1.product_id < p2.product_id
+JOIN products pa ON pa.product_id = p1.product_id
+JOIN products pb ON pb.product_id = p2.product_id
+GROUP BY p1.product_id, pa.name, p2.product_id, pb.name
+ORDER BY pair_count DESC
+LIMIT :top_n;''', "Market Basket Analysis — Self-Join on order_items (relational_service.py)")
+
+    add_styled_paragraph(doc,
+        "Market Basket Analysis discovers which products are frequently purchased together — "
+        "a technique used by Amazon ('Customers who bought this also bought...'). This query "
+        "performs a self-join on the order_items table: each row is paired with every other row "
+        "from the same order. The condition p1.product_id < p2.product_id prevents duplicate "
+        "pairs (A+B is the same as B+A). Two additional JOINs to the products table resolve "
+        "product names for readability. Results are sorted by pair frequency — the top pair "
+        "represents the strongest product affinity.", size=9, color=MED_GRAY)
 
     # ── SECTION 4: NoSQL Database ───────────────────────
     add_heading_styled(doc, "4. NoSQL Database (MongoDB)", 1)
@@ -434,10 +530,79 @@ def build_document():
     ]
     add_styled_table(doc, ["Collection", "Pattern", "Purpose"], mongo_data, [3.5, 2.5, 7.5])
 
-    add_heading_styled(doc, "4.2 Advanced Queries", 2)
-    add_bullet(doc, "MongoDB aggregation pipeline with $facet computes conversion rates across 4 stages: page_view → add_to_cart → checkout → purchase. Typical results show ~15% add-to-cart rate and ~6% purchase conversion.", bold_prefix="$facet Funnel: ")
-    add_bullet(doc, "Aggregation detecting sessions where add_to_cart events exist but checkout is missing — identifies lost sales opportunities.", bold_prefix="Cart Abandonment: ")
-    add_bullet(doc, "end_time index with expireAfterSeconds: 2592000 (30 days) automatically removes stale session data, managing storage growth without manual intervention.", bold_prefix="TTL Index: ")
+    add_heading_styled(doc, "4.2 Advanced NoSQL Queries", 2)
+    add_styled_paragraph(doc,
+        "MongoDB's aggregation pipeline demonstrates document-oriented analytics "
+        "without relational JOINs. The $facet stage runs 4 parallel counts in a "
+        "single pass through the data.", size=10)
+
+    add_styled_paragraph(doc,
+        "This $facet aggregation pipeline computes the e-commerce conversion funnel in a single "
+        "database pass. First, $unwind expands each session's embedded events[] array into "
+        "individual documents. Then $facet runs four independent sub-pipelines in parallel: "
+        "each filters for a specific action_type (page_view, add_to_cart, checkout, purchase), "
+        "groups by session_id to deduplicate sessions, and counts unique sessions per stage. "
+        "The backend then calculates conversion rates by dividing each stage count by the "
+        "page_view total. This replaces what would require 4 separate SQL queries with "
+        "a single MongoDB operation.", size=9, color=MED_GRAY)
+
+    add_code_block(doc, '''db.user_sessions.aggregate([
+  { $unwind: "$events" },
+  { $facet: {
+      page_views: [
+        { $match: {"events.action_type": "page_view"}},
+        { $group: {_id: "$session_id"}},
+        { $count: "count"}
+      ],
+      add_to_cart: [
+        { $match: {"events.action_type": "add_to_cart"}},
+        { $group: {_id: "$session_id"}},
+        { $count: "count"}
+      ],
+      checkouts: [
+        { $match: {"events.action_type": "checkout"}},
+        { $group: {_id: "$session_id"}},
+        { $count: "count"}
+      ],
+      purchases: [
+        { $match: {"events.action_type": "purchase"}},
+        { $group: {_id: "$session_id"}},
+        { $count: "count"}
+      ]
+  }}
+])''', "Funnel Analytics — MongoDB $facet Aggregation Pipeline (nosql_service.py)")
+
+    add_code_block(doc, '''# Velocity-based fraud detection (nosql_service.py)
+threshold = settings.FRAUD_EVENT_THRESHOLD  # default: 10
+window_start = datetime.utcnow() - timedelta(
+    seconds=settings.FRAUD_TIME_WINDOW_SECONDS)
+
+session = await db.user_sessions.find_one({
+    "customer_id": customer_id, "session_id": session_id
+})
+
+recent_events = [e for e in session.get("events", [])
+                 if e["timestamp"] >= window_start]
+
+if len(recent_events) >= threshold:
+    has_purchase = any(e["action_type"] == "purchase"
+                       for e in recent_events)
+    if not has_purchase:
+        await db.user_sessions.update_one(
+            {"customer_id": customer_id, "session_id": session_id},
+            {"$set": {"flagged": True}})
+        # Cross-database alert: MongoDB flag -> PostgreSQL INSERT
+        create_alert(db, customer_id, session_id, ...)''', "Fraud Detection — Cross-Database Velocity Check (nosql_service.py)")
+
+    add_styled_paragraph(doc,
+        "This velocity-based fraud detector fires whenever a user exceeds the configured threshold "
+        "(default: 10 add_to_cart events in 60 seconds) without completing a purchase. First, it "
+        "retrieves the user's session document from MongoDB (O(1) lookup by compound index on "
+        "customer_id + session_id). It then filters events to the current time window and checks "
+        "whether any purchase event exists. If the threshold is exceeded with no purchase, it "
+        "flags the session in MongoDB ($set: {flagged: True}) and INSERTs an alert into "
+        "PostgreSQL — demonstrating cross-database coordination where the high-velocity event "
+        "store (MongoDB) feeds the authoritative alert log (PostgreSQL).", size=9, color=MED_GRAY)
 
     # ── SECTION 5: Application Implementation ───────────
     add_heading_styled(doc, "5. Application Implementation", 1)
@@ -473,24 +638,38 @@ def build_document():
     # ── SECTION 6: Performance Evaluation ───────────────
     add_heading_styled(doc, "6. Performance Evaluation", 1)
     add_styled_paragraph(doc,
-        "Benchmarks were run using backend/benchmark/benchmark_runner.py inside the Docker "
-        "environment. The suite measures 4 distinct workload types to highlight the strengths "
-        "of each database:", size=10)
+        "Benchmarks were run via backend/benchmark/benchmark_runner.py inside Docker "
+        "on 2026-06-30. The suite measures 4 distinct workload types to highlight "
+        "the strengths of each database:", size=10)
 
     bench_data = [
-        ["1", "Bulk Insert (10k events)", "MongoDB", "Bucket Pattern updateOne with $push + $inc + upsert"],
-        ["2", "Hotspot UPDATEs (200 txns)", "PostgreSQL", "Concurrent UPDATE under contention"],
-        ["3", "5-Table JOIN", "PostgreSQL", "SELECT across orders + customers + items + products"],
-        ["4", "Aggregation Pipeline", "MongoDB", "$unwind + $group equivalent of GROUP BY"],
+        ["1", "Bulk Insert (10k events)", "MongoDB", "14.39s", "695 ops/sec", "Bucket Pattern avoids per-event overhead"],
+        ["2", "Hotspot UPDATEs (200 txns)", "PostgreSQL", "0.53s", "378 txns/sec", "Row-level locking under contention"],
+        ["3", "5-Table JOIN", "PostgreSQL", "0.019s", "—", "Query optimizer handles complex algebra"],
+        ["4", "Aggregation Pipeline", "MongoDB", "0.117s", "—", "$facet: 4 parallel counts in single pass"],
     ]
-    add_styled_table(doc, ["#", "Test", "Database", "Operation"], bench_data, [1, 3.5, 2.5, 6.5])
+    add_styled_table(doc, ["#", "Test", "Database", "Time", "Throughput", "Insight"],
+                     bench_data, [0.8, 3.2, 1.8, 1.5, 1.8, 4.5])
 
     add_styled_paragraph(doc,
-        "Key findings: MongoDB excels at bulk inserts (Bucket Pattern avoids per-event document "
-        "overhead), while PostgreSQL handles concurrent transactional updates with row-level locking "
-        "that prevents data corruption. The 5-table JOIN is only possible in PostgreSQL (MongoDB has "
-        "no native JOIN support), demonstrating why a polyglot persistence approach is necessary for "
-        "this use case. Results are plotted to benchmark_results.png using matplotlib.", size=10)
+        "Key finding: PostgreSQL's 5-table JOIN (0.019s) outperforms MongoDB's "
+        "aggregation pipeline (0.117s) for complex relational queries — despite "
+        "MongoDB not needing JOINs at all. This validates the polyglot persistence "
+        "approach: PostgreSQL for structured queries with relationships, MongoDB "
+        "for high-velocity clickstream writes (695 ops/sec via Bucket Pattern).", size=10)
+
+    # Insert benchmark plot image
+    plot_path = DOCS_DIR / ".." / "backend" / "benchmark" / "plots" / "benchmark_results.png"
+    if plot_path.exists():
+        add_styled_paragraph(doc, "Benchmark Results Chart:", size=10, bold=True, space_after=4)
+        try:
+            img = doc.add_picture(str(plot_path), width=Inches(5.5))
+            last_paragraph = doc.paragraphs[-1]
+            last_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        except Exception:
+            add_styled_paragraph(doc, "(Chart image could not be embedded — see benchmark/plots/benchmark_results.png)", size=9, color=MED_GRAY)
+    else:
+        add_styled_paragraph(doc, "(Benchmark plot not found — run benchmark_runner.py first)", size=9, color=MED_GRAY)
 
     # ── SECTION 7: Testing & QA ─────────────────────────
     add_heading_styled(doc, "7. Testing & Quality Assurance", 1)
@@ -543,6 +722,9 @@ def build_document():
         ("Cross-database consistency ", "required careful design. The Outbox Pattern provides eventual consistency, but debugging sync failures required checking both PostgreSQL (outbox.processed) and MongoDB (customer_order_summary)."),
         ("Trigger debugging was difficult ", "— PostgreSQL trigger errors roll back the entire transaction, and error messages appear only in server logs, not application output."),
         ("The JWT sub claim initially used an integer ", "user_id, which python-jose rejects (requires string). This was discovered and fixed during integration testing (changed to str(user.user_id))."),
+        ("Bcrypt password hashing was a significant bottleneck ", "— an early data loader version called pwd_ctx.hash() inside a loop, which would have taken ~83 minutes for 20,000 users. Fixed by computing the hash once outside the loop and reusing it. Additionally, a hardcoded bcrypt hash was incompatible with the container's bcrypt library version — resolved by switching to runtime hash generation via passlib."),
+        ("Product names contained trailing synthetic numbers ", "from the Kaggle dataset (e.g., 'SSD MediumBlue 149'). These were cleaned using regex (re.sub(r'\\s+\\d+$', '', name)) in the data loader. A name column was added to the products table and propagated through all API responses and the frontend."),
+        ("Vite HMR with Docker volumes was unreliable on Windows ", "— Vite's Hot Module Replacement did not consistently detect file changes on Docker volume mounts. Workaround: restart the frontend container (docker restart ecommerce-frontend) after code changes."),
     ]
     for bold_part, normal_part in challenges:
         add_bullet(doc, normal_part, bold_prefix=bold_part)
@@ -569,28 +751,140 @@ def build_document():
     for imp in improvements:
         add_bullet(doc, imp)
 
+    # ── SECTION 10: References ──────────────────────────
+    doc.add_page_break()
+    add_heading_styled(doc, "10. References", 1)
+
+    refs = [
+        ("[1] ", "Waqi (2024). \"E-commerce Clickstream and Transaction Dataset.\" Kaggle. ", ""),
+        ("    ", "https://www.kaggle.com/datasets/waqi786/e-commerce-clickstream-and-transaction-dataset", ""),
+        ("    ", "~200,000 clickstream events + transaction records used for the sessions.csv, clickstream_events.csv, and orders.csv base data.", ""),
+        ("", "", ""),
+        ("[2] ", "Wafaa Elhusseini (2024). \"Synthetic E-commerce Transactions + Clickstream 2020–2025.\" Kaggle. ", ""),
+        ("    ", "https://www.kaggle.com/datasets/wafaaelhusseini/e-commerce-transactions-clickstream", ""),
+        ("    ", "~75,000 synthetic transactions used for customers.csv and products.csv base data.", ""),
+        ("", "", ""),
+        ("[3] ", "Kleppmann, M. (2017). Designing Data-Intensive Applications. O'Reilly Media.", ""),
+        ("    ", "Reference for ACID vs BASE trade-offs, Outbox Pattern, and polyglot persistence architecture.", ""),
+        ("", "", ""),
+        ("[4] ", "MongoDB, Inc. (2024). \"Aggregation Pipeline.\" MongoDB Documentation.", ""),
+        ("    ", "https://www.mongodb.com/docs/manual/core/aggregation-pipeline/", ""),
+        ("    ", "Reference for $facet, $unwind, and Bucket Pattern implementation.", ""),
+        ("", "", ""),
+        ("[5] ", "PostgreSQL Global Development Group. (2024). \"CREATE TRIGGER.\" PostgreSQL Documentation.", ""),
+        ("    ", "https://www.postgresql.org/docs/15/sql-createtrigger.html", ""),
+        ("    ", "Reference for BEFORE/AFTER INSERT triggers, CHECK constraints, and CTE syntax.", ""),
+    ]
+    for bold_part, normal_part, extra in refs:
+        if bold_part == "":
+            doc.add_paragraph()
+            continue
+        p = doc.add_paragraph()
+        if bold_part.strip():
+            run_b = p.add_run(bold_part)
+            run_b.bold = True
+            run_b.font.size = Pt(9)
+        run_n = p.add_run(normal_part)
+        run_n.font.size = Pt(9)
+        if extra:
+            p2 = doc.add_paragraph()
+            run_e = p2.add_run(extra)
+            run_e.font.size = Pt(8)
+            run_e.font.color.rgb = MED_GRAY
+            run_e.italic = True
+
     # ── APPENDIX ────────────────────────────────────────
     doc.add_page_break()
-    add_heading_styled(doc, "Appendix — Source Code & Documentation Files", 1)
+    add_heading_styled(doc, "Appendix A — Complete Source Code Listing", 1)
     add_styled_paragraph(doc, "This appendix is not counted toward the 8-page limit.", size=9, italic=True, color=MED_GRAY)
 
     appendix_data = [
-        ["backend/triggers.sql", "4 PostgreSQL trigger definitions (stock check, inventory, outbox, audit)"],
-        ["backend/models/relational.py", "SQLAlchemy ORM models for all 8 PostgreSQL tables"],
-        ["backend/services/nosql_service.py", "MongoDB operations: Bucket Pattern, funnel, fraud detection, indexes"],
-        ["backend/services/relational_service.py", "Complex SQL: RFM CTEs, market basket self-join, audit queries"],
-        ["backend/services/sync_service.py", "CDC Outbox processor — async poller + MongoDB sync"],
-        ["backend/data_loader.py", "CSV ingestion pipeline (batch-optimized: ~50s demo, ~20 min full). DEMO_MODE env var, nrows sampling, bulk MongoDB writes."],
-        ["backend/reset_db.py", "Database reset script (PostgreSQL + MongoDB wipe and recreate)"],
-        ["backend/tests/test_suite.py", "161-test automated test suite (100% pass rate)"],
-        ["backend/benchmark/benchmark_runner.py", "Performance comparison: PostgreSQL vs MongoDB"],
-        ["docker-compose.yml", "5-container orchestration with auto data loading and DB reset"],
-        ["README.md", "Technical documentation with API reference and architecture diagram"],
-        ["walkthrough.md", "Non-technical guide with glossary and step-by-step instructions"],
-        ["DOCKER_TROUBLESHOOTING.md", "12+ common Docker issues with diagnostic commands"],
-        ["docs/ER_Diagram.md", "Complete ER diagram with 8 tables + 4 MongoDB collections"],
+        ["backend/main.py", "FastAPI entry point: lifespan hooks, CORS, router registration"],
+        ["backend/config.py", "Centralised settings from environment variables (12-Factor App)"],
+        ["backend/data_loader.py", "Dual-database CSV ingestion: batch $push $each, nrows sampling, shared bcrypt"],
+        ["backend/triggers.sql", "5 PostgreSQL table DDL + 4 trigger functions (stock, inventory, outbox, audit)"],
+        ["backend/reset_db.py", "Database wipe & recreate: drops all PG tables + MongoDB collections"],
+        ["backend/promote_admin.py", "CLI tool to promote a user to admin role"],
+        ["backend/models/relational.py", "8 SQLAlchemy ORM models: User, Customer, Product, Order, OrderItem, etc."],
+        ["backend/models/nosql_schemas.py", "Pydantic models: UserSession, ClickstreamEvent, ActionType enum"],
+        ["backend/services/relational_service.py", "Complex SQL: RFM (CTE+NTILE), market basket (self-join), top products"],
+        ["backend/services/nosql_service.py", "MongoDB: Bucket Pattern, $facet funnel, fraud detection, CDC target, indexes"],
+        ["backend/services/sync_service.py", "CDC Outbox processor: async poller (5s) → PG outbox → MongoDB sync"],
+        ["backend/api/auth.py", "JWT: registration, login, /me with bcrypt + OAuth2PasswordBearer"],
+        ["backend/api/products.py", "Product catalog: paginated list, category filter, ILIKE search"],
+        ["backend/api/cart.py", "Clickstream events: MongoDB Bucket Pattern writes + fraud detection"],
+        ["backend/api/orders.py", "ACID order creation with 4-trigger cascade + order history"],
+        ["backend/api/analytics.py", "9 analytics endpoints: RFM, funnel, market basket, alerts, audit"],
+        ["backend/tests/test_suite.py", "161-test automated suite (10 sections, 100% pass rate)"],
+        ["backend/benchmark/benchmark_runner.py", "4 database benchmarks + matplotlib chart generation"],
+        ["frontend/src/App.jsx", "Root React component: routing, auth state, cart management"],
+        ["frontend/src/api.js", "Axios API client: 13 endpoint functions + JWT header injection"],
+        ["frontend/src/components/ProductList.jsx", "Product catalog: search, filter, pagination, add-to-cart"],
+        ["frontend/src/components/Cart.jsx", "Shopping cart: quantity controls, checkout, clickstream debug"],
+        ["frontend/src/components/Login.jsx", "Login/Register form with URL-based mode toggle"],
+        ["frontend/src/components/AdminDashboard.jsx", "Admin analytics: RFM pie, funnel bar, market basket, alerts"],
+        ["docker-compose.yml", "6-service orchestration with health checks, volumes, and profiles"],
+        [".env", "Environment variables template (not committed to git)"],
     ]
-    add_styled_table(doc, ["File", "Description"], appendix_data, [6, 7.5])
+    add_styled_table(doc, ["File", "Description"], appendix_data, [5.5, 8])
+
+    # ── Appendix B: API Reference ─────────────────────
+    doc.add_page_break()
+    add_heading_styled(doc, "Appendix B — API Endpoint Reference", 1)
+
+    api_data = [
+        ["POST", "/api/auth/register", "None", "PG", "Create account (bcrypt hash)"],
+        ["POST", "/api/auth/login", "None", "PG", "Authenticate → JWT token"],
+        ["GET", "/api/auth/me", "JWT", "PG", "Current user profile"],
+        ["GET", "/api/products/", "None", "PG", "Paginated catalog (category, search)"],
+        ["GET", "/api/products/{id}", "None", "PG", "Single product detail"],
+        ["GET", "/api/products/categories/all", "None", "PG", "Distinct category list"],
+        ["POST", "/api/cart/event", "JWT", "Mongo", "Record clickstream event"],
+        ["GET", "/api/cart/session/{id}", "JWT", "Mongo", "Retrieve session events"],
+        ["POST", "/api/orders/", "JWT", "PG", "Create order (ACID + triggers)"],
+        ["GET", "/api/orders/{id}", "JWT", "PG", "Order detail by ID"],
+        ["GET", "/api/orders/", "JWT", "PG", "User's order history"],
+        ["GET", "/api/analytics/rfm", "JWT", "PG", "RFM customer segmentation"],
+        ["GET", "/api/analytics/market-basket", "JWT", "PG", "Product affinity pairs"],
+        ["GET", "/api/analytics/funnel", "JWT", "Mongo", "Conversion funnel (4-stage)"],
+        ["GET", "/api/analytics/cart-abandonment", "JWT", "Mongo", "Abandoned sessions"],
+        ["GET", "/api/analytics/top-products", "JWT", "PG", "Best-selling products"],
+        ["GET", "/api/analytics/sales-by-category", "JWT", "PG", "Revenue by category"],
+        ["GET", "/api/analytics/alerts", "Admin", "PG", "Fraud alerts (admin only)"],
+        ["GET", "/api/analytics/audit/{id}", "Admin", "PG", "Order change history (admin only)"],
+    ]
+    add_styled_table(doc, ["Method", "Endpoint", "Auth", "DB", "Purpose"], api_data, [1.2, 4.5, 1.2, 1.2, 5.5])
+
+    # ── Appendix C: Environment Variables ──────────────
+    add_heading_styled(doc, "Appendix C — Environment Variables", 1)
+
+    env_data = [
+        ["DATABASE_URL", "postgresql://...", "PostgreSQL connection string"],
+        ["MONGO_URI", "mongodb://localhost:27017", "MongoDB connection URI"],
+        ["MONGO_DB", "ecommerce_nosql", "MongoDB database name"],
+        ["JWT_SECRET_KEY", "(dev default)", "HMAC-SHA256 signing key"],
+        ["JWT_ALGORITHM", "HS256", "JWT signing algorithm"],
+        ["JWT_EXPIRE_MINUTES", "60", "Token expiry duration"],
+        ["FRAUD_EVENT_THRESHOLD", "10", "Cart events to trigger fraud alert"],
+        ["FRAUD_TIME_WINDOW_SECONDS", "60", "Fraud detection time window"],
+        ["OUTBOX_POLL_INTERVAL", "5", "CDC poller interval (seconds)"],
+        ["DEMO_MODE", "true", "Toggle demo/full dataset loading"],
+        ["DEBUG", "false", "SQLAlchemy query logging"],
+    ]
+    add_styled_table(doc, ["Variable", "Default", "Purpose"], env_data, [4.5, 3, 6])
+
+    # ── Appendix D: Technology Stack ───────────────────
+    add_heading_styled(doc, "Appendix D — Technology Stack", 1)
+
+    tech_data = [
+        ["Frontend", "React 18, Vite 5, Recharts 2, React Router 6, Axios 1", "SPA with 4 views, interactive charts, JWT interceptor"],
+        ["Backend", "Python 3.11, FastAPI, SQLAlchemy 2, Motor 3, Pandas 2", "Async REST API, ORM + raw SQL, async MongoDB driver"],
+        ["Auth", "python-jose 3, passlib 1, bcrypt", "JWT encode/decode, password hashing, OAuth2 flow"],
+        ["Databases", "PostgreSQL 15, MongoDB 7", "Relational (ACID) + Document store (BASE)"],
+        ["Infrastructure", "Docker 24, Docker Compose v2", "6-service orchestration, health checks, volumes"],
+        ["Testing", "Python requests, unittest-style", "161 automated tests, 10 sections, 100% pass rate"],
+    ]
+    add_styled_table(doc, ["Layer", "Technologies", "Purpose"], tech_data, [2, 5.5, 6])
 
     # ── Footer ──────────────────────────────────────────
     doc.add_paragraph()

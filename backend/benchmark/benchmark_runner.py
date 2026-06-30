@@ -12,7 +12,11 @@ Generates matplotlib bar chart saved to plots/benchmark_results.png
 import time
 import threading
 import asyncio
+import sys
 from pathlib import Path
+
+# Ensure /app is on the Python path (Docker container working directory)
+sys.path.insert(0, '/app')
 
 import matplotlib
 matplotlib.use("Agg")  # Non-interactive backend
