@@ -2,7 +2,7 @@
 
 **INF2003 Group 11 — E-Commerce Clickstream & Transaction Analytics**
 
-This guide covers common Docker issues your lecturer might encounter when setting up the project. Each problem has a diagnostic command and a fix.
+This guide covers common Docker issues you might encounter when setting up the project. Each problem has a diagnostic command and a fix.
 
 ---
 
