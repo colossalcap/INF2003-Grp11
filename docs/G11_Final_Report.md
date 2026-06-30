@@ -58,7 +58,7 @@ The system comprises 5 Docker containers orchestrated via Docker Compose:
 | **Backend API** | FastAPI (Python 3.11) | 8000 | REST API with JWT auth, 18 endpoints, Swagger docs |
 | **Relational DB** | PostgreSQL 15 | 5432 | ACID transactions — orders, inventory, customers, audit logs |
 | **NoSQL DB** | MongoDB 7 | 27017 | BASE analytics — clickstream events, sessions, funnel metrics |
-| **Data Loader** | Python (one-shot, optimized) | — | CSV ingestion pipeline, auto-runs on startup. Batch-optimized: ~1.5 min demo mode, ~20 min full dataset |
+| **Data Loader** | Python (one-shot, optimized) | — | CSV ingestion pipeline, auto-runs on startup. Batch-optimized: ~50s demo mode (~2K customers, 3K orders, 40K events), ~20 min full dataset |
 
 ### 2.2 Data Flow
 
@@ -76,7 +76,7 @@ Frontend (React) ──REST/JWT──▶ Backend (FastAPI)
 ```
 
 **Data Routing:**
-- **Browsing data** (page views, cart actions) → MongoDB via Bucket Pattern (`$push` + `$inc`), near O(1) insert complexity
+- **Browsing data** (page views, cart actions) → MongoDB via Bucket Pattern. **Bulk loading:** `$push: { $each: [...] }` for batch ingestion. **Runtime:** individual `$push` + `$inc` per event, near O(1) insert complexity
 - **Purchase data** (orders) → PostgreSQL ACID transaction with trigger cascade (stock check → inventory deduction → outbox CDC → audit log)
 - **CDC Bridge** — PostgreSQL trigger writes to `outbox` → async poller picks up → MongoDB `customer_order_summary` updated via atomic `$inc`
 - **Fraud Detection** — MongoDB session velocity check on every `add_to_cart` → threshold exceeded → PostgreSQL `alerts` INSERT
@@ -139,7 +139,7 @@ The complete ER diagram documentation is available in `docs/ER_Diagram.md` with 
 
 | # | Functionality | Database | Implementation |
 |---|--------------|----------|---------------|
-| F1 | Browse product catalog (1,197 items, 7 categories) | PostgreSQL | Paginated SELECT with category filter and text search |
+| F1 | Browse product catalog (1,197 items, 7 categories, with product names) | PostgreSQL | Paginated SELECT with category filter, text search, and product name display |
 | F2 | User registration & login | PostgreSQL | JWT auth with bcrypt password hashing, role-based access |
 | F3 | Add items to shopping cart | MongoDB | Bucket Pattern — clickstream events via `$push` + `$inc` |
 | F4 | Place orders (ACID transaction) | PostgreSQL | Multi-table insert with 4-trigger cascade |
@@ -169,7 +169,7 @@ The complete ER diagram documentation is available in `docs/ER_Diagram.md` with 
 |-------|----|------------|-------------|
 | `users` | `user_id` INT | username UNIQUE, email UNIQUE, password_hash (bcrypt), role | — |
 | `customers` | `customer_id` UUID | country_code, opt_in_status | — |
-| `products` | `product_id` VARCHAR(50) | category, unit_price, stock_quantity | CHECK (stock_quantity >= 0) |
+| `products` | `product_id` VARCHAR(50) | name, category, unit_price, stock_quantity | CHECK (stock_quantity >= 0) |
 | `orders` | `order_id` UUID | FK → customers, order_date, total_amount, status | — |
 | `order_items` | `item_id` SERIAL | FK → orders, FK → products, quantity | CHECK (quantity > 0) |
 | `outbox` | `event_id` SERIAL | aggregate_id, event_type, payload (JSONB), processed | — |
@@ -268,9 +268,9 @@ The initial data loader took ~20 minutes to ingest the full 275K-row dataset int
 | **120K individual session inserts** | Each session was upserted individually via `update_one` | Use `insert_many(ordered=False)` for bulk session creation | ~3 min saved |
 | **20K bcrypt passwords** | `pwd_ctx.hash('password123')` called inside the loop — each hash takes ~250ms; 20,000 × 250ms = ~83 minutes | Pre-compute the hash ONCE outside the loop and reuse the same bcrypt hash for all demo users | Prevented ~83 min delay |
 
-**Demo Mode Architecture:** A `DEMO_MODE` flag at the top of `data_loader.py` controls data sampling. When `True` (default), CSV files are read with `pd.read_csv(nrows=N)` to load only the first N rows. The `_nrows()` helper returns the limit in demo mode or `None` (full file) otherwise. All features — RFM segmentation, market basket analysis, funnel analytics, fraud detection, trigger verification — remain fully functional with the reduced dataset.
+**Demo Mode Architecture:** A `DEMO_MODE` environment variable (set in `.env` or `docker-compose.yml`) controls data sampling. When set to `true` (default), CSV files are read with `pd.read_csv(nrows=N)` to load only the first N rows. The `_nrows()` helper returns the limit in demo mode or `None` (full file) otherwise. All features — RFM segmentation, market basket analysis, funnel analytics, fraud detection, trigger verification — remain fully functional with the reduced dataset. The first user (`user_1`) is automatically assigned the `admin` role via `role="admin" if csv_id == 1 else "customer"`, enabling instant admin dashboard access after login.
 
-**Result:** Load time reduced from **~20 minutes to ~1.5 minutes** (13× speedup). The full dataset remains available by setting `DEMO_MODE = False`.
+**Result:** Load time reduced from **~20 minutes to ~50 seconds** (24× speedup in demo mode). Measured from `docker compose up` to data loader exit code 0 on a cold start. The full dataset remains available by setting `DEMO_MODE=false` in `.env` or the data-loader environment.
 
 ### 5.5 Constraints & Justification
 
@@ -332,6 +332,8 @@ Benchmarks were run via `benchmark/benchmark_runner.py` inside Docker:
 - **Trigger debugging** — PostgreSQL trigger errors roll back the entire transaction; error messages appear only in server logs.
 - **JWT `sub` claim** initially used integer `user_id`, which `python-jose` rejects (requires string). Fixed during integration testing.
 - **Hardcoded bcrypt hash** in data loader was incompatible with container's bcrypt version. Fixed by runtime hash generation via passlib. Further optimized by computing the hash once outside the loop — hashing per-row would have taken ~83 minutes for 20K users.
+- **Product names** — The Kaggle dataset includes synthetic product names with trailing variant numbers (e.g., "SSD MediumBlue 149"). These were cleaned using `re.sub(r'\s+\d+$', '', name)` in the data loader. A `name` column was added to the `products` table and propagated through all API endpoints and the frontend.
+- **Vite HMR with Docker volumes** — Vite's Hot Module Replacement doesn't reliably detect file changes on Windows Docker volume mounts. Workaround: restart the frontend container (`docker restart ecommerce-frontend`) after code changes.
 
 ### 7.3 GenAI Usage Reflection
 

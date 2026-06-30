@@ -394,8 +394,8 @@ def build_document():
     pg_tables = [
         ["users", "Authentication accounts", "INT PK, username (UNIQUE), email (UNIQUE), bcrypt password_hash, role (customer/admin)"],
         ["customers", "Customer profiles", "UUID PK, country_code, opt_in_status. UUID prevents enumeration attacks."],
-        ["products", "Product catalog", "VARCHAR PK, 7 categories, unit_price, stock_quantity (CHECK >= 0). 1,197 items."],
-        ["orders", "Purchase orders", "UUID PK, FK → customers, order_date, total_amount, status. ~53,000 rows."],
+        ["products", "Product catalog", "VARCHAR PK, name, 7 categories, unit_price, stock_quantity (CHECK >= 0). 1,197 items."],
+        ["orders", "Purchase orders", "UUID PK, FK → customers, order_date, total_amount, status. ~33,580 rows (full) / 3,000 (demo)."],
         ["order_items", "Line items", "SERIAL PK, FK → orders + products, quantity (CHECK > 0). ~75,000 rows. Triggers fire here."],
         ["outbox", "CDC event store", "SERIAL PK, aggregate_id, event_type, JSONB payload, processed flag. Grows with orders."],
         ["order_audit_log", "Change history", "SERIAL PK, FK → orders, changed_by, field_name, old_value, new_value. Trigger-populated."],
@@ -457,13 +457,14 @@ def build_document():
 
     add_heading_styled(doc, "5.2 Key Features", 2)
     features = [
-        "JWT authentication with bcrypt password hashing and role-based access control (customer/admin)",
-        "Product catalog with category filter (7 categories), text search, and pagination (20/100 per page)",
-        "Clickstream event tracking via MongoDB Bucket Pattern — all 4 funnel event types recorded with $push + $inc",
+        "JWT authentication with bcrypt password hashing and role-based access control (customer/admin). The first user (user_1) is auto-assigned admin role for instant dashboard access.",
+        "Product catalog with category filter (7 categories), text search, product names, and pagination (20/100 per page)",
+        "Clickstream event tracking via MongoDB Bucket Pattern — all 4 funnel event types recorded. Bulk data loading uses batch $push: { $each: [...] } (one DB call per session); runtime uses individual $push + $inc (O(1) per event)",
         "Order creation with full ACID transaction — FK validation, stock check, inventory deduction, outbox CDC, and audit logging all fire automatically via database triggers",
         "Real-time fraud detection — MongoDB session velocity analysis triggers PostgreSQL alert insertion when 10+ add_to_cart events occur in 60 seconds without a purchase",
-        "Admin dashboard with RFM pie chart (Champions/Loyal/At Risk/Lost), funnel bar chart (4-stage conversion), market basket table (top 10 pairs), top products, sales by category, and fraud alerts table",
-        "Automated test suite — 161 tests covering every endpoint, trigger, and error case (7-second runtime, 100% pass rate)",
+        "Admin dashboard with RFM pie chart, funnel bar chart (4-stage conversion), market basket (top 10 pairs with product names), top products, sales by category, and fraud alerts",
+        "Optimized data loader: ~50s demo mode (24x speedup via batch MongoDB writes, nrows sampling, shared bcrypt hash). Controlled via DEMO_MODE env var in .env file. Full 275K-row dataset via DEMO_MODE=false",
+        "Automated test suite — 161 tests covering every endpoint, trigger, and error case (3-7 second runtime, 100% pass)",
         "Docker Compose one-command startup with automatic data loading and database reset capabilities",
     ]
     for f in features:
@@ -531,7 +532,7 @@ def build_document():
         ("Clear separation of concerns: ", "PostgreSQL handles everything requiring ACID (orders, inventory); MongoDB handles everything requiring high write throughput (clickstream, sessions, funnel). Neither database is a bottleneck for the other's workload."),
         ("Outbox Pattern provided reliable CDC ", "without external infrastructure (Kafka, Debezium). The pattern was simple to implement, easy to debug, and guaranteed at-least-once delivery."),
         ("Database triggers simplified the application layer ", "— inventory management, CDC event generation, and audit logging happen automatically at the database level, reducing application code complexity and eliminating race conditions."),
-        ("MongoDB Bucket Pattern ", "perfectly matched the clickstream use case. $push + $inc operations are O(1) and avoid the document-per-event anti-pattern."),
+        ("MongoDB Bucket Pattern ", "perfectly matched the clickstream use case. Bulk loading uses $push: { $each: [...] } (one DB call per session); runtime $push + $inc operations are O(1) and avoid the document-per-event anti-pattern."),
         ("Docker Compose ", "made the project instantly reproducible. The data loader auto-runs on first start, and the reset service enables clean demos."),
     ]
     for bold_part, normal_part in worked_well:
@@ -579,7 +580,7 @@ def build_document():
         ["backend/services/nosql_service.py", "MongoDB operations: Bucket Pattern, funnel, fraud detection, indexes"],
         ["backend/services/relational_service.py", "Complex SQL: RFM CTEs, market basket self-join, audit queries"],
         ["backend/services/sync_service.py", "CDC Outbox processor — async poller + MongoDB sync"],
-        ["backend/data_loader.py", "CSV ingestion pipeline for 6 datasets into both databases"],
+        ["backend/data_loader.py", "CSV ingestion pipeline (batch-optimized: ~50s demo, ~20 min full). DEMO_MODE env var, nrows sampling, bulk MongoDB writes."],
         ["backend/reset_db.py", "Database reset script (PostgreSQL + MongoDB wipe and recreate)"],
         ["backend/tests/test_suite.py", "161-test automated test suite (100% pass rate)"],
         ["backend/benchmark/benchmark_runner.py", "Performance comparison: PostgreSQL vs MongoDB"],

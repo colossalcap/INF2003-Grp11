@@ -18,6 +18,9 @@ env/
 
 # Database (SQLite dev dbs)
 *.db
+
+# Environment
+.env
 *.sqlite3
 *.sqlite
 
