@@ -1,7 +1,21 @@
 """
-============================================================
-INF2003 Group 11 — Auth API (JWT Authentication)
-============================================================
+Authentication API — JWT + bcrypt + Role-Based Access Control.
+===============================================================
+
+Stateless auth using JSON Web Tokens (HMAC-SHA256). Passwords hashed with
+bcrypt (passlib) — deliberately slow to resist brute-force attacks.
+
+SECURITY:
+  - bcrypt hashing with auto-upgrade (passlib CryptContext)
+  - JWT with configurable expiry (default 60 min)
+  - Role-based access: customer vs admin
+  - OAuth2PasswordBearer token flow
+  - Sub claim as string (python-jose rejects integer sub values)
+
+ENDPOINTS:
+  POST /api/auth/register — Create account → bcrypt hash → PG users table
+  POST /api/auth/login    — Authenticate → return JWT access_token
+  GET  /api/auth/me       — Return current user from token payload
 """
 
 from datetime import datetime, timedelta

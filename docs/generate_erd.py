@@ -6,8 +6,9 @@ import matplotlib; matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch
 import os
+from pathlib import Path
 
-OUT = "c:/Users/tdmca/OneDrive/Desktop/Database/INF2003-Grp11/docs"
+OUT = str(Path(__file__).resolve().parent)
 PG_HDR = '#0D47A1'; MG_HDR = '#1B5E20'; TC = '#E65100'; BG = '#FAFAFA'
 
 def box(ax, x, y, w, h, color, text, fontsize=10, bold=False, tc='white'):

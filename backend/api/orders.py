@@ -28,14 +28,6 @@ class CreateOrderPayload(BaseModel):
     items: List[OrderItemPayload]
 
 
-class OrderResponse(BaseModel):
-    order_id: str
-    customer_id: str
-    total_amount: float
-    status: str
-    items: list
-
-
 @router.post("/")
 async def create_order(
     payload: CreateOrderPayload,

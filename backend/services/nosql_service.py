@@ -1,9 +1,24 @@
 """
-============================================================
-INF2003 Group 11 — MongoDB NoSQL Service
-Bucket pattern updates, session stats, funnel analysis,
-fraud detection, and indexes.
-============================================================
+MongoDB NoSQL Service — Clickstream, Funnel, Fraud, and CDC Target.
+====================================================================
+
+Implements all MongoDB operations using the Motor async driver.
+Demonstrates 4 established NoSQL design patterns:
+
+NOSQL PATTERNS:
+  1. BUCKET PATTERN (user_sessions): Accumulates clickstream events per session
+     using atomic updateOne with $push + $inc + upsert. Bulk loading uses
+     $push: { $each: [...] } — one DB call per session instead of per event.
+  2. COMPUTED PATTERN (session_stats): Pre-aggregated session metrics.
+  3. CDC TARGET PATTERN (customer_order_summary): Denormalized view from PG.
+  4. CACHED PATTERN (funnel_metrics): Results of $facet aggregation pipeline.
+
+KEY FUNCTIONS:
+  track_clickstream_event()     — Bucket Pattern atomic write
+  check_fraud_alert()           — Velocity-based fraud detection (10+ events/60s)
+  compute_funnel_metrics()      — $facet pipeline → 4-stage conversion rates
+  update_customer_order_summary() — Idempotent CDC target update ($inc)
+  init_mongo_indexes()          — Compound, TTL, and query indexes
 """
 
 from datetime import datetime, timedelta
@@ -275,43 +290,6 @@ async def detect_cart_abandonment() -> List[dict]:
 # ------------------------------------------------------------
 # Session Stats Computation (Computed Pattern)
 # ------------------------------------------------------------
-async def compute_session_stats(session_id: str):
-    """
-    Pre-aggregate stats for a session and store in session_stats collection.
-    """
-    db = await get_mongo_db()
-
-    session = await db.user_sessions.find_one({"session_id": session_id})
-    if not session:
-        return None
-
-    events = session.get("events", [])
-    action_types = [e["action_type"] for e in events]
-    unique_products = len(set(
-        e["product_id"] for e in events
-        if e.get("product_id")
-    ))
-
-    stats = {
-        "session_id": session_id,
-        "customer_id": session.get("customer_id"),
-        "total_events": len(events),
-        "unique_products_viewed": unique_products,
-        "cart_additions": action_types.count(ActionType.ADD_TO_CART.value),
-        "checkout_reached": ActionType.CHECKOUT.value in action_types,
-        "purchase_completed": ActionType.PURCHASE.value in action_types,
-        "last_updated": datetime.utcnow(),
-    }
-
-    await db.session_stats.update_one(
-        {"session_id": session_id},
-        {"$set": stats},
-        upsert=True,
-    )
-
-    return stats
-
-
 # ------------------------------------------------------------
 # CDC Target: Update customer_order_summary in MongoDB
 # ------------------------------------------------------------
