@@ -15,6 +15,8 @@ NOSQL PATTERNS:
 
 KEY FUNCTIONS:
   track_clickstream_event()     — Bucket Pattern atomic write
+  update_session_stats()        — Computed Pattern write-time pre-aggregation
+  compute_all_session_stats()   — Computed Pattern batch aggregation
   check_fraud_alert()           — Velocity-based fraud detection (10+ events/60s)
   compute_funnel_metrics()      — $facet pipeline → 4-stage conversion rates
   update_customer_order_summary() — Idempotent CDC target update ($inc)
@@ -102,6 +104,9 @@ async def track_clickstream_event(
         },
         upsert=True,
     )
+
+    # Write-time Computed Pattern: Pre-aggregate session metrics in session_stats
+    await update_session_stats(customer_id, session_id, action_type, now)
 
     return {
         "matched": result.matched_count,
@@ -290,6 +295,111 @@ async def detect_cart_abandonment() -> List[dict]:
 # ------------------------------------------------------------
 # Session Stats Computation (Computed Pattern)
 # ------------------------------------------------------------
+async def update_session_stats(
+    customer_id: str,
+    session_id: str,
+    action_type: ActionType,
+    event_time: Optional[datetime] = None,
+) -> dict:
+    """
+    Computed Pattern: Pre-aggregate session summaries at write time.
+    Updates event counts by type and first/last timestamps in session_stats
+    to avoid recomputing summaries on read.
+    """
+    db = await get_mongo_db()
+    now = event_time or datetime.utcnow()
+
+    result = await db.session_stats.update_one(
+        {"session_id": session_id},
+        {
+            "$inc": {
+                "total_events": 1,
+                f"event_counts.{action_type.value}": 1,
+            },
+            "$set": {
+                "customer_id": customer_id,
+                "last_event_time": now,
+            },
+            "$setOnInsert": {
+                "first_event_time": now,
+            },
+        },
+        upsert=True,
+    )
+    return {
+        "matched": result.matched_count,
+        "modified": result.modified_count,
+        "upserted_id": str(result.upserted_id) if result.upserted_id else None,
+    }
+
+
+async def get_session_stats(session_id: str) -> Optional[dict]:
+    """
+    Computed Pattern: Fast O(1) retrieval of pre-aggregated session stats
+    without recomputing or scanning user_sessions events.
+    """
+    db = await get_mongo_db()
+    return await db.session_stats.find_one({"session_id": session_id}, {"_id": 0})
+
+
+async def compute_all_session_stats() -> int:
+    """
+    Computed Pattern (Batch): Re-aggregate all session summaries from
+    user_sessions and populate session_stats.
+    """
+    db = await get_mongo_db()
+
+    pipeline = [
+        {"$unwind": "$events"},
+        {
+            "$group": {
+                "_id": {
+                    "session_id": "$session_id",
+                    "action_type": "$events.action_type",
+                },
+                "customer_id": {"$first": "$customer_id"},
+                "count": {"$sum": 1},
+                "min_time": {"$min": "$events.timestamp"},
+                "max_time": {"$max": "$events.timestamp"},
+            }
+        },
+        {
+            "$group": {
+                "_id": "$_id.session_id",
+                "customer_id": {"$first": "$customer_id"},
+                "total_events": {"$sum": "$count"},
+                "first_event_time": {"$min": "$min_time"},
+                "last_event_time": {"$max": "$max_time"},
+                "counts": {
+                    "$push": {
+                        "k": "$_id.action_type",
+                        "v": "$count",
+                    }
+                },
+            }
+        },
+        {
+            "$project": {
+                "_id": 0,
+                "session_id": "$_id",
+                "customer_id": 1,
+                "total_events": 1,
+                "first_event_time": 1,
+                "last_event_time": 1,
+                "event_counts": {"$arrayToObject": "$counts"},
+            }
+        },
+    ]
+
+    results = await db.user_sessions.aggregate(pipeline).to_list(length=None)
+    if not results:
+        return 0
+
+    await db.session_stats.delete_many({})
+    await db.session_stats.insert_many(results)
+    return len(results)
+
+
 # ------------------------------------------------------------
 # CDC Target: Update customer_order_summary in MongoDB
 # ------------------------------------------------------------

@@ -384,6 +384,11 @@ async def load_clickstream_to_mongo(batch_size: int = 5000):
                 print(f"  Batched {event_count} events across {sessions_processed} sessions...", flush=True)
 
         print(f"[OK] Loaded {event_count} clickstream events across {sessions_processed} sessions.", flush=True)
+
+        print("  Computing pre-aggregated session_stats (Computed Pattern)...", flush=True)
+        from services.nosql_service import compute_all_session_stats
+        stats_count = await compute_all_session_stats()
+        print(f"[OK] Populated session_stats for {stats_count} sessions.", flush=True)
         total_count += event_count
 
     return total_count
