@@ -71,11 +71,13 @@ class Customer(Base):
     __tablename__ = "customers"
 
     customer_id = Column(PortableUUID(), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=True, index=True)
     registration_date = Column(DateTime, default=datetime.utcnow)
     country_code = Column(String(3))
     opt_in_status = Column(Boolean, default=True)
 
     # Relationships
+    user = relationship("User", backref="customer", uselist=False)
     orders = relationship("Order", back_populates="customer", cascade="all, delete-orphan")
 
 

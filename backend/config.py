@@ -74,6 +74,3 @@ class Settings:
 
 # Module-level singleton — import as `from config import settings`
 settings = Settings()
-
-
-settings = Settings()

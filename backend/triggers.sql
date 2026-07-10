@@ -9,8 +9,19 @@
 -- 0. CORE TABLES (created here so triggers can reference them)
 --    The ORM will see these exist and skip recreation.
 -- ============================================================
+CREATE TABLE IF NOT EXISTS users (
+    user_id         SERIAL PRIMARY KEY,
+    username        VARCHAR(50) UNIQUE NOT NULL,
+    email           VARCHAR(100) UNIQUE NOT NULL,
+    password_hash   VARCHAR(255) NOT NULL,
+    display_name    VARCHAR(100),
+    role            VARCHAR(20) DEFAULT 'customer',
+    created_at      TIMESTAMP DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS customers (
     customer_id     UUID PRIMARY KEY,
+    user_id         INTEGER REFERENCES users(user_id),
     registration_date TIMESTAMP DEFAULT NOW(),
     country_code    VARCHAR(3),
     opt_in_status   BOOLEAN DEFAULT TRUE

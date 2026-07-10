@@ -74,16 +74,11 @@ def load_customers_postgres(batch_size: int = 1000):
 
     try:
         for _, row in df.iterrows():
-            customer = Customer(
-                customer_id=str(uuid.uuid4()),
-                country_code=str(row.get("country", "XX"))[:3],
-                opt_in_status=str(row.get("marketing_opt_in", "True")).lower() == "true",
-            )
-            db.add(customer)
-
-            # Also create a User for authentication (using customer_id as mapping)
             csv_id = int(row['customer_id'])
-            if not db.query(User).filter_by(username=f"user_{csv_id}").first():
+
+            # Create or find User for authentication (must exist BEFORE Customer for FK)
+            user = db.query(User).filter_by(username=f"user_{csv_id}").first()
+            if not user:
                 user = User(
                     username=f"user_{csv_id}",
                     email=str(row.get("email", f"user{csv_id}@example.com")),
@@ -92,6 +87,16 @@ def load_customers_postgres(batch_size: int = 1000):
                     role="admin" if csv_id == 1 else "customer",
                 )
                 db.add(user)
+                db.flush()  # Get user_id for the Customer FK below
+
+            # Create Customer linked to this User
+            customer = Customer(
+                customer_id=str(uuid.uuid4()),
+                user_id=user.user_id,
+                country_code=str(row.get("country", "XX"))[:3],
+                opt_in_status=str(row.get("marketing_opt_in", "True")).lower() == "true",
+            )
+            db.add(customer)
 
             count += 1
             if count % batch_size == 0:
@@ -182,33 +187,43 @@ def load_orders_postgres(batch_size: int = 500):
     SHARED_HASH = pwd_ctx.hash('password123')
 
     try:
-        # Map each CSV customer_id to a unique PostgreSQL UUID customer
+        # Map each CSV customer_id to a PostgreSQL UUID customer.
+        # Strategy: look up the User (created by load_customers_postgres),
+        # then find the Customer already linked to that User via user_id FK.
         csv_customer_ids = df_orders["customer_id"].unique()
         existing_customers = {}
 
         for cid in csv_customer_ids:
             int_cid = int(cid)
-            # Create a unique customer per CSV customer_id
-            new_cust = Customer(
-                customer_id=str(uuid.uuid4()),
-                country_code="XX",
-                opt_in_status=True,
-            )
-            db.add(new_cust)
-            db.flush()
-            existing_customers[int_cid] = new_cust.customer_id
 
-            # Also create a User record so these customers can log in via JWT
+            # Find or create User
             existing_user = db.query(User).filter_by(username=f"user_{int_cid}").first()
             if not existing_user:
-                user = User(
+                existing_user = User(
                     username=f"user_{int_cid}",
                     email=f"user{int_cid}@ecommerce.local",
                     password_hash=SHARED_HASH,
                     display_name=f"Customer {int_cid}",
                     role="admin" if int_cid == 1 else "customer",
                 )
-                db.add(user)
+                db.add(existing_user)
+                db.flush()
+
+            # Find existing Customer linked to this User (from load_customers_postgres)
+            cust = db.query(Customer).filter(Customer.user_id == existing_user.user_id).first()
+            if cust:
+                existing_customers[int_cid] = cust.customer_id
+            else:
+                # Create a new Customer linked to the User
+                new_cust = Customer(
+                    customer_id=str(uuid.uuid4()),
+                    user_id=existing_user.user_id,
+                    country_code="XX",
+                    opt_in_status=True,
+                )
+                db.add(new_cust)
+                db.flush()
+                existing_customers[int_cid] = new_cust.customer_id
 
         db.commit()
 

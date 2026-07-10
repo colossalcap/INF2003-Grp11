@@ -44,13 +44,13 @@ async def create_order(
     if not payload.items:
         raise HTTPException(status_code=400, detail="Order must contain at least one item.")
 
-    # 1. Always create a Customer for the authenticated user if one doesn't exist.
-    #    Strategy: look up by a stored username→customer mapping, fall back to creating one.
-    customer = db.query(Customer).order_by(Customer.registration_date.desc()).first()
+    # 1. Find or create a Customer record linked to this authenticated user.
+    customer = db.query(Customer).filter(Customer.user_id == current_user.user_id).first()
 
     if not customer:
         customer = Customer(
             customer_id=str(uuid.uuid4()),
+            user_id=current_user.user_id,
             country_code="XX",
             opt_in_status=True,
         )

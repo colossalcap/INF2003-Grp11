@@ -141,6 +141,7 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
     import uuid
     customer = Customer(
         customer_id=str(uuid.uuid4()),
+        user_id=user.user_id,
         country_code="XX",
         opt_in_status=True,
     )
