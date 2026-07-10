@@ -126,7 +126,7 @@ cd C:\Users\tdmca\OneDrive\Desktop\Database\INF2003-Grp11
 Type this one command and press Enter:
 
 ```bash
-docker-compose up
+docker compose up
 ```
 
 The first time you run this, Docker will download everything it needs (this might take 5-10 minutes depending on your internet speed). You'll see a lot of text scrolling by — that's normal!
@@ -135,16 +135,16 @@ When it's done, you'll see messages like:
 ```
 ecommerce-postgres     | database system is ready to accept connections
 ecommerce-mongodb      | Waiting for connections
-ecommerce-data-loader  | Loading customers → PostgreSQL ... 20000 loaded
-ecommerce-data-loader  | Loading products → PostgreSQL ... 1197 loaded
-ecommerce-data-loader  | Loading orders → PostgreSQL ... 53000 loaded
-ecommerce-data-loader  | Loading clickstream → MongoDB ... 120000 loaded
+ecommerce-data-loader  | Loading customers -> PostgreSQL ... 2000 loaded
+ecommerce-data-loader  | Loading products -> PostgreSQL ... 1197 loaded
+ecommerce-data-loader  | Loading orders -> PostgreSQL ... 3000 loaded
+ecommerce-data-loader  | Loading clickstream -> MongoDB ... 40000 loaded
 ecommerce-data-loader exited with code 0  ← Done loading!
 ecommerce-backend      | 🚀 Starting E-Commerce Analytics Platform...
 ecommerce-frontend     | ➜ Local: http://localhost:3000/
 ```
 
-> The `ecommerce-data-loader` runs once, loads all the data into both databases, then exits. It takes 1-2 minutes. The website won't show products until it finishes!
+> The `ecommerce-data-loader` runs once, loads all the data into both databases, then exits. It takes about 1.5 minutes in demo mode. The website won't show products until it finishes!
 
 ### Step 4: Open the Website
 
@@ -162,7 +162,7 @@ You should see the online store with 1,197 products! 🎉
 
 To stop everything, go back to the terminal and press `Ctrl + C` (hold the Control key and press C). Wait a few seconds for everything to shut down gracefully.
 
-To start again later, just run `docker-compose up` again — it will be much faster the second time.
+To start again later, just run `docker compose up` again — it will be much faster the second time.
 
 ---
 
@@ -170,7 +170,7 @@ To start again later, just run `docker-compose up` again — it will be much fas
 
 **Good news — this now happens automatically!** 🎉
 
-When you run `docker-compose up`, a special one-shot container called `data-loader` starts up right after the databases are ready. It automatically loads all the CSV files and then exits. You'll see its progress in the terminal output.
+When you run `docker compose up`, a special one-shot container called `data-loader` starts up right after the databases are ready. It automatically loads all the CSV files and then exits. You'll see its progress in the terminal output.
 
 The project comes with real-world-style data in CSV files (spreadsheet-like files) inside the `data/` folder:
 
@@ -189,7 +189,7 @@ The project comes with real-world-style data in CSV files (spreadsheet-like file
 >
 > Combined and processed into 6 CSV files totaling ~275,000 rows of realistic e-commerce data.
 
-> **What does this do?** The `data_loader.py` program reads each CSV file and inserts the data into the correct database — customer and product info goes to PostgreSQL, clickstream events go to MongoDB. By default it runs in **demo mode** which takes about **1.5 minutes**. You can watch its progress in the `docker-compose up` terminal output.
+> **What does this do?** The `data_loader.py` program reads each CSV file and inserts the data into the correct database — customer and product info goes to PostgreSQL, clickstream events go to MongoDB. By default it runs in **demo mode** which takes about **1.5 minutes**. You can watch its progress in the `docker compose up` terminal output.
 >
 > **Want the full dataset?** Edit `backend/data_loader.py` and set `DEMO_MODE = False` at the top of the file. Then reset databases and rebuild:
 > ```bash
@@ -210,7 +210,7 @@ The project comes with real-world-style data in CSV files (spreadsheet-like file
 docker exec -it ecommerce-backend python data_loader.py
 ```
 
-> **Tip for returning users:** After your first `docker-compose up`, the data is already loaded. On subsequent starts, you can skip the data loader by commenting out the `data-loader` section in `docker-compose.yml` (add a `#` at the start of each line). This makes startup much faster.
+> **Tip for returning users:** After your first `docker compose up`, the data is already loaded. On subsequent starts, you can skip the data loader by commenting out the `data-loader` section in `docker-compose.yml` (add a `#` at the start of each line). This makes startup much faster.
 
 You'll see progress messages as it loads. When it's done, the website will show real products and the analytics charts will have data to display!
 
@@ -374,7 +374,7 @@ You'll see output like this:
 ════════════════════════════════════════════════════════════
   ✅ Passed:  161/161
   ❌ Failed:  0/161
-  ⏱️  Time:    7.08s
+  ⏱️  Time:    4.58s
 ════════════════════════════════════════════════════════════
 
   🎉 ALL TESTS PASSED!
@@ -419,9 +419,11 @@ Here's what every folder and important file does — explained in plain English:
 ```
 INF2003-Grp11/
 │
+├── .dockerignore               ← Docker build context exclusions (speeds up builds)
 ├── docker-compose.yml          ← The "master switch" — one command starts everything
 ├── README.md                   ← Technical overview (you're reading the friendly version!)
 ├── walkthrough.md              ← THIS FILE — the comprehensive guide
+├── demoguide.md                ← Live demo script (every click & word for the video)
 │
 ├── data/                       ← Raw data files (spreadsheets)
 │   ├── customers.csv           ← 20,000 customer profiles
@@ -476,10 +478,11 @@ INF2003-Grp11/
 │           ├── Cart.jsx        ← Shopping cart interface
 │           └── AdminDashboard.jsx ← Charts & analytics dashboard
 │
-└── docs/                       ← Written reports and documentation
-    ├── ER_Diagram.md           ← Visual map of database relationships
-    ├── G11_Progress_Report.md  ← Mid-project progress report
-    └── G11_Final_Report.md     ← Final submission report
+└── docs/                       ← Database diagrams & reports
+    ├── ER_Diagram.png          ← Combined dual-database ER diagram
+    ├── ER_Diagram_PostgreSQL.png ← PostgreSQL 8-table ER diagram
+    ├── ER_Diagram_MongoDB.png  ← MongoDB 4-collection diagram
+    └── generate_er_diagrams.py ← Script to regenerate all ER diagrams
 ```
 
 ---
@@ -520,7 +523,7 @@ INF2003-Grp11/
 
 ## ❓ Frequently Asked Questions
 
-**Q: I see an error when running `docker-compose up` — "port is already allocated."**
+**Q: I see an error when running `docker compose up` — "port is already allocated."**
 A: Something else on your computer is using port 5432, 27017, 8000, or 3000. Stop that other program first, or change the ports in `docker-compose.yml`.
 
 **Q: The website loads but shows no products.**
@@ -539,17 +542,17 @@ A: You have two options:
 ```bash
 docker-compose down                      # Stop everything
 docker-compose --profile reset up reset-db   # Wipe both databases
-docker-compose up                        # Fresh start (auto-loads data)
+docker compose up                        # Fresh start (auto-loads data)
 ```
 
 **Option 2: Nuclear reset (wipes everything including Docker volumes)**
 ```bash
 docker-compose down -v    # Stop everything and delete all data
-docker-compose up         # Start fresh (auto-loads data)
+docker compose up         # Start fresh (auto-loads data)
 ```
 
 **Q: The tests fail with "Connection refused."**
-A: Make sure `docker-compose up` is running in another terminal first. The tests need the backend to be running.
+A: Make sure `docker compose up` is running in another terminal first. The tests need the backend to be running.
 
 **Q: Where do the charts and graphs come from?**
 A: The admin dashboard uses **Recharts**, a JavaScript charting library that draws pie charts, bar charts, and tables from the data our backend API returns.
