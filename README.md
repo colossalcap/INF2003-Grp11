@@ -10,7 +10,7 @@
 [![React](https://img.shields.io/badge/react-18+-61dafb)](https://react.dev/)
 [![INF2003](https://img.shields.io/badge/module-INF2003%20SIT-red)]()
 
-**Group 11 — Team Hanzalians** · Singapore Institute of Technology · June 2026
+**Group 11 — Team Hanzalians** · Singapore Institute of Technology · July 2026
 
 </div>
 
@@ -22,11 +22,10 @@
 |----------|----------|---------|
 | **`README.md`** (this file) | Developers & Evaluators | Technical overview, API reference, architecture |
 | **`walkthrough.md`** | Everyone (no coding knowledge needed) | Friendly guide with glossary, analogies, step-by-step instructions |
-| **`demoguide.md`** | Team members doing demos | Scripted walkthrough of every feature for presentations & video |
+| **`demoguide.md`** | Team members doing demos | Scripted live demo walkthrough — every click, every word |
 | **`DOCKER_TROUBLESHOOTING.md`** | Anyone debugging setup issues | 12+ common Docker problems with diagnostic commands and fixes |
-| **`docs/ER_Diagram.md`** | Database Designers | Full entity-relationship diagram with relationships |
-| **`docs/G11_Final_Report.md`** | Academic Submission | 8-page final report covering all INF2003 requirements |
-| **`docs/G11_Progress_Report.md`** | Academic Submission | Mid-project progress report |
+| **`G11_Final_Report.md`** | Academic Submission | 8-page final report covering all INF2003 requirements |
+| **`docs/`** | Database Designers | ER diagrams (PostgreSQL, MongoDB, combined) + generator script |
 
 > **New to this project?** Start with [`walkthrough.md`](walkthrough.md). **Doing a demo?** Use [`demoguide.md`](demoguide.md). **Docker issues?** See [`DOCKER_TROUBLESHOOTING.md`](DOCKER_TROUBLESHOOTING.md).
 > **Having Docker problems?** See [`DOCKER_TROUBLESHOOTING.md`](DOCKER_TROUBLESHOOTING.md) — 12 common issues with step-by-step fixes.
@@ -117,18 +116,18 @@ Wipe all data and start clean — useful for demos or troubleshooting:
 
 ```bash
 # 1. Stop everything
-docker-compose down
+docker compose down
 
 # 2. Wipe both databases
-docker-compose --profile reset up reset-db
+docker compose --profile reset up reset-db
 
 # 3. Start fresh (auto-loads data)
-docker-compose up
+docker compose up
 ```
 
 Or as a one-liner:
 ```bash
-docker-compose down && docker-compose --profile reset up reset-db && docker-compose up
+docker compose down && docker compose --profile reset up reset-db && docker compose up
 ```
 
 ---
@@ -188,7 +187,7 @@ docker-compose down && docker-compose --profile reset up reset-db && docker-comp
 | Table | Row Count | Key Features |
 |-------|-----------|-------------|
 | `users` | ~2,000 (demo) / 20,000 (full) | JWT auth, bcrypt passwords, admin/customer roles |
-| `customers` | ~2,000 (demo) / 20,000 (full) | UUID PK, country_code, opt-in status |
+| `customers` | ~2,000 (demo) / 20,000 (full) | UUID PK, user_id FK → users, country_code, opt-in status |
 | `products` | 1,197 | 7 categories, CHECK(stock_quantity >= 0), indexed by category |
 | `orders` | ~3,000 (demo) / 33,580 (full) | FK → customers, status tracking, total_amount |
 | `order_items` | varies with orders | FK → orders + products, triggers fire here |
@@ -196,7 +195,7 @@ docker-compose down && docker-compose --profile reset up reset-db && docker-comp
 | `order_audit_log` | dynamic | Full change history (trigger-populated) |
 | `alerts` | dynamic | Fraud detection results, acknowledged flag |
 
-**Relationships:** customers 1:M orders, orders 1:M order_items, products 1:M order_items
+**Relationships:** users 1:1 customers, customers 1:M orders, orders 1:M order_items, products 1:M order_items
 
 ### MongoDB — NoSQL (4 Collections, BASE)
 
@@ -208,6 +207,8 @@ docker-compose down && docker-compose --profile reset up reset-db && docker-comp
 | `funnel_metrics` | **Cached** | on-demand | Aggregated conversion funnel results |
 
 **Indexes:** Compound (customer_id, session_id), TTL (end_time, 30-day expiry), flagged, events.timestamp
+
+All services include Docker health checks — backend (HTTP /api/health) and frontend (HTTP :3000) are verified healthy before dependent services start.
 
 ---
 
@@ -313,7 +314,7 @@ Example output:
 ```
   ✅ Passed:  161/161
   ❌ Failed:  0/161
-  ⏱️  Time:    7.08s
+  ⏱️  Time:    4.58s
   🎉 ALL TESTS PASSED!
 ```
 
@@ -363,9 +364,11 @@ Results plotted to `backend/benchmark/plots/benchmark_results.png`.
 
 ```
 INF2003-Grp11/
+├── .dockerignore                  ← Docker build context exclusions
 ├── docker-compose.yml              ← One-command full-stack startup
 ├── README.md                       ← This file — technical overview
 ├── walkthrough.md                  ← Friendly guide for non-programmers
+├── demoguide.md                    ← Live demo script (every click & word)
 │
 ├── data/                           ← CSV datasets (~275k rows total)
 │   ├── customers.csv               (20k rows)

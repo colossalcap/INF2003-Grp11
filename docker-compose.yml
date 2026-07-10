@@ -66,6 +66,12 @@ services:
       - ./backend:/app
       - ./data:/data
       - ./backend/benchmark/plots:/app/benchmark/plots
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   # ============================================================
   # React Frontend (Vite)
@@ -78,9 +84,16 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     volumes:
       - ./frontend/src:/app/src
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   # ============================================================
   # Data Loader — One-shot service that loads CSV data into
