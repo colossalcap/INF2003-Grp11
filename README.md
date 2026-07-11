@@ -299,15 +299,16 @@ docker exec -it ecommerce-backend python tests/test_suite.py
 
 | Section | Tests | Coverage |
 |---------|-------|----------|
+| Setup | 5 | Register regular & admin users, promote to admin, login both |
 | Health Checks | 7 | Root, health, Swagger, OpenAPI schema |
 | Authentication | 12 | Register, login, /me, duplicates, bad passwords, invalid tokens |
-| Products | 30 | List, pagination, category filter, search, get by ID, 404, categories |
-| Cart/Clickstream | 16 | All 4 event types, invalid inputs, session retrieval, auto-ID |
-| Orders (ACID) | 18 | Create, get, list, stock rejection, inventory deduction trigger, outbox |
-| Analytics | 24 | RFM, market basket, funnel, cart abandonment, top products, sales |
-| Admin Analytics | 7 | Alerts (admin/non-admin), audit trail (admin/non-admin/unauth) |
+| Products | 41 | List, pagination, category filter (20 per-product loop assertions), search, get by ID, 404, categories |
+| Cart/Clickstream | 18 | All 4 event types, invalid inputs, session retrieval, auto-ID |
+| Orders (ACID) | 19 | Create, get, list, stock rejection, inventory deduction trigger, outbox |
+| Analytics | 26 | RFM, market basket, funnel (4 stages + conversion rate check), cart abandonment, top products, sales |
+| Admin Analytics | 8 | Alerts (admin/non-admin), audit trail (admin/non-admin/unauth) |
 | Trigger Verification | 10 | All 4 functions + table attachments + CHECK constraint |
-| MongoDB Verification | 10 | 4 collections, compound index, TTL, flagged, timestamp indexes |
+| MongoDB Verification | 9 | 4 collections, compound index, TTL, flagged, timestamp indexes |
 | Error Handling | 6 | Empty body, short username, invalid email, short password, 404, bad pagination |
 
 Example output:
