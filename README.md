@@ -22,13 +22,10 @@
 |----------|----------|---------|
 | **`README.md`** (this file) | Developers & Evaluators | Technical overview, API reference, architecture |
 | **`walkthrough.md`** | Everyone (no coding knowledge needed) | Friendly guide with glossary, analogies, step-by-step instructions |
-| **`demoguide.md`** | Team members doing demos | Scripted live demo walkthrough — every click, every word |
 | **`DOCKER_TROUBLESHOOTING.md`** | Anyone debugging setup issues | 12+ common Docker problems with diagnostic commands and fixes |
-| **`G11_Final_Report.md`** | Academic Submission | 8-page final report covering all INF2003 requirements |
-| **`docs/`** | Database Designers | ER diagrams (PostgreSQL, MongoDB, combined) + generator script |
+| **`docs/`** | Database Designers | ER diagrams — PostgreSQL (8 tables), MongoDB (4 collections), combined |
 
-> **New to this project?** Start with [`walkthrough.md`](walkthrough.md). **Doing a demo?** Use [`demoguide.md`](demoguide.md). **Docker issues?** See [`DOCKER_TROUBLESHOOTING.md`](DOCKER_TROUBLESHOOTING.md).
-> **Having Docker problems?** See [`DOCKER_TROUBLESHOOTING.md`](DOCKER_TROUBLESHOOTING.md) — 12 common issues with step-by-step fixes.
+> **New to this project?** Start with [`walkthrough.md`](walkthrough.md). **Docker issues?** See [`DOCKER_TROUBLESHOOTING.md`](DOCKER_TROUBLESHOOTING.md).
 
 ---
 
@@ -55,7 +52,7 @@ This starts all 5 containers:
 | `ecommerce-frontend` | React (Vite) | `3000` | Product catalog, cart, admin dashboard |
 | `ecommerce-data-loader` | Python (one-shot) | — | Auto-loads CSV data into both databases, then exits |
 
-> **The data loader runs automatically on first start!** By default it runs in **demo mode** (~1.5 min) loading 2K customers, 1.2K products, 3K orders, and 40K clickstream events — enough to demonstrate ALL features. To load the full 275K-row dataset, set `DEMO_MODE = False` in `backend/data_loader.py`, then reset and rebuild:
+> **The data loader runs automatically on first start!** By default it runs in **demo mode** (~1.5 min) loading 2K customers, 1.2K products, 3K orders, and 40K clickstream events — enough to demonstrate ALL features. To load the full ~1M-row dataset, set `DEMO_MODE = False` in `backend/data_loader.py`, then reset and rebuild:
 > ```bash
 > docker compose --profile reset up reset-db && docker compose build data-loader && docker compose up -d data-loader
 > ```
@@ -68,7 +65,7 @@ This starts all 5 containers:
 | E-commerce Clickstream and Transaction Dataset | [waqi786](https://www.kaggle.com/datasets/waqi786/e-commerce-clickstream-and-transaction-dataset) | ~200,000 events |
 | Synthetic E-commerce Transactions + Clickstream 2020–2025 | [wafaaelhusseini](https://www.kaggle.com/datasets/wafaaelhusseini/e-commerce-transactions-clickstream) | ~75,000 transactions |
 
-Combined into 6 CSV files in `data/`: `customers.csv`, `products.csv`, `orders.csv`, `order_items.csv`, `clickstream_events.csv`, `sessions.csv` — totaling ~275,000 rows.
+Combined into 6 CSV files in `data/`: `customers.csv`, `products.csv`, `orders.csv`, `order_items.csv`, `clickstream_events.csv`, `sessions.csv` — totaling ~995,000 rows (~1 million).
 
 ### ⚡ Data Loader Performance
 
@@ -346,7 +343,7 @@ Results plotted to `backend/benchmark/plots/benchmark_results.png`.
 |---|---------|---------------|-------------|
 | 1 | **Dual-database architecture** | PostgreSQL (ACID) + MongoDB (BASE) | Req 1, 3 |
 | 2 | **≥3 tables, multiple relationships** | 8 tables, 1:M relationships | Req 3 |
-| 3 | **ER Diagram** | `docs/ER_Diagram.md` | Req 3 |
+| 3 | **ER Diagram** | `docs/ER_Diagram*.png` | Req 3 |
 | 4 | **CRUD on both DBs** | Products, orders, events, sessions | Req 4 |
 | 5 | **Nested queries** | RFM CTEs, market basket self-join | Req 5 |
 | 6 | **4 database triggers** | Stock, inventory, outbox, audit | Req 5 |
@@ -369,15 +366,14 @@ INF2003-Grp11/
 ├── docker-compose.yml              ← One-command full-stack startup
 ├── README.md                       ← This file — technical overview
 ├── walkthrough.md                  ← Friendly guide for non-programmers
-├── demoguide.md                    ← Live demo script (every click & word)
 │
-├── data/                           ← CSV datasets (~275k rows total)
+├── data/                           ← CSV datasets (~995k rows total)
 │   ├── customers.csv               (20k rows)
 │   ├── products.csv                (1.2k rows)
-│   ├── orders.csv                  (53k rows)
-│   ├── order_items.csv             (75k rows)
-│   ├── clickstream_events.csv      (120k rows)
-│   └── sessions.csv                (27.5k rows)
+│   ├── orders.csv                  (33.6k rows)
+│   ├── order_items.csv             (59.2k rows)
+│   ├── clickstream_events.csv      (761k rows)
+│   └── sessions.csv                (120k rows)
 │
 ├── backend/                        ← FastAPI application
 │   ├── Dockerfile
@@ -425,11 +421,10 @@ INF2003-Grp11/
 │           ├── Cart.jsx            ← Shopping cart + clickstream tracking
 │           └── AdminDashboard.jsx  ← Charts: RFM pie, funnel bar, alerts
 │
-└── docs/                           ← Documentation & reports
-    ├── ER_Diagram.md               ← Entity-relationship diagram
-    ├── G11_Final_Report.md         ← Final submission (8 pages)
-    ├── G11_Progress_Report.md      ← Mid-project progress report
-    └── G11_Progress_Report.docx    ← Progress report (Word format)
+└── docs/                           ← Entity-relationship diagrams
+    ├── ER_Diagram.png              ← Combined dual-database overview
+    ├── ER_Diagram_PostgreSQL.png   ← PostgreSQL 8-table diagram
+    └── ER_Diagram_MongoDB.png      ← MongoDB 4-collection diagram
 ```
 
 ---

@@ -83,7 +83,7 @@ The PID shown by the command above tells you which program is using the port. Co
 - Port `8000`: Another Python app
 - Port `27017`: Another MongoDB installation
 
-Stop or quit that program, then run `docker-compose up` again.
+Stop or quit that program, then run `docker compose up` again.
 
 **Fix — Option 2: Change the ports**
 Edit `docker-compose.yml` and change the left-side port number (host port) to something free:
@@ -161,7 +161,7 @@ docker-compose up         # ❌ old syntax, may not work
 
 ## 🔴 Problem 7: Containers exit immediately / keep restarting
 
-**Symptoms:** `docker-compose up` starts containers but they crash with `exit code 1` or keep restarting.
+**Symptoms:** `docker compose up` starts containers but they crash with `exit code 1` or keep restarting.
 
 **Diagnose:**
 ```bash
@@ -175,9 +175,9 @@ docker logs ecommerce-mongodb
 
 | Log message | Cause | Fix |
 |-------------|-------|-----|
-| `FATAL: database "ecommerce_db" does not exist` | PostgreSQL didn't initialize properly | `docker-compose down -v` then `docker-compose up` |
-| `ModuleNotFoundError: No module named 'fastapi'` | Backend image didn't build | `docker-compose build --no-cache backend` |
-| `connection refused` | Database not ready when backend started | Normal — docker-compose retries. Wait 30 seconds. |
+| `FATAL: database "ecommerce_db" does not exist` | PostgreSQL didn't initialize properly | `docker compose down -v` then `docker compose up` |
+| `ModuleNotFoundError: No module named 'fastapi'` | Backend image didn't build | `docker compose build --no-cache backend` |
+| `connection refused` | Database not ready when backend started | Normal — docker compose retries. Wait 30 seconds. |
 | `EACCES: permission denied` | Volume mount permission issue (Linux/Mac) | `sudo chown -R $USER:$USER ./data ./backend` |
 
 ---
@@ -195,7 +195,7 @@ toomanyrequests: You have reached your pull rate limit
 Docker Hub limits anonymous pulls to 100 per 6 hours. If you hit the limit:
 1. Create a free Docker Hub account at [hub.docker.com](https://hub.docker.com)
 2. Log in from terminal: `docker login`
-3. Try again: `docker-compose up`
+3. Try again: `docker compose up`
 
 Or wait — the limit resets every 6 hours.
 
@@ -248,8 +248,8 @@ Or build hangs at `RUN pip install`.
 
 **Fix — Option 1: Clear build cache**
 ```bash
-docker-compose build --no-cache
-docker-compose up
+docker compose build --no-cache
+docker compose up
 ```
 
 **Fix — Option 2: Architecture mismatch (Apple Silicon Mac)**
@@ -283,13 +283,13 @@ netsh interface ipv4 show excludedportrange protocol=tcp
    ```powershell
    net start winnat
    ```
-4. Try `docker-compose up` again
+4. Try `docker compose up` again
 
 ---
 
 ## 🟡 Common Workflow Issues
 
-### "I ran docker-compose up but the website shows 'Loading products...' forever"
+### "I ran docker compose up but the website shows 'Loading products...' forever"
 
 The data loader hasn't finished yet. Check the terminal output — look for `ecommerce-data-loader` lines. Wait for `ecommerce-data-loader exited with code 0`. Then refresh the browser.
 
@@ -299,11 +299,11 @@ The data loader hasn't finished yet. Check the terminal output — look for `eco
 
 The `docker-compose.yml` uses volume mounts (`./backend:/app`) so code changes ARE live. But if you changed `requirements.txt` or any Dockerfile, you need to rebuild:
 ```bash
-docker-compose build --no-cache backend
-docker-compose up
+docker compose build --no-cache backend
+docker compose up
 ```
 
-### "docker-compose down -v didn't delete the data"
+### "docker compose down -v didn't delete the data"
 
 Some Docker Desktop versions have a bug with volume removal. Delete volumes manually:
 ```bash
@@ -323,7 +323,7 @@ docker ps -a --filter name=ecommerce-data-loader
 docker logs ecommerce-data-loader --tail 20
 ```
 
-**Most likely cause:** You're running the FULL dataset instead of demo mode. The full 275K-row dataset takes ~20 minutes. Demo mode (default) takes ~1.5 minutes.
+**Most likely cause:** You're running the FULL dataset instead of demo mode. The full ~1M-row dataset takes ~20 minutes. Demo mode (default) takes ~1.5 minutes.
 
 **Fix — Switch to demo mode:**
 1. Open `backend/data_loader.py`
@@ -336,7 +336,7 @@ docker logs ecommerce-data-loader --tail 20
    docker compose up -d data-loader
    ```
 
-**Background:** We optimized the loader with batch MongoDB writes (`$push: { $each: [...] }` instead of 761K individual calls), `nrows` sampling, and pre-computed bcrypt hashes. This achieved a **13× speedup** — from ~20 min to ~1.5 min for the demo dataset.
+**Background:** We optimized the loader with batch MongoDB writes (`$push: { $each: [...] }` instead of 761K individual calls), `nrows` sampling, bulk inserts, and pre-computed bcrypt hashes. This achieved a **24× speedup** — from ~20 min to ~50 sec for the full dataset.
 
 ---
 
@@ -345,21 +345,43 @@ docker logs ecommerce-data-loader --tail 20
 If NOTHING works, run this complete nuke-and-rebuild:
 
 ```bash
-# 1. Stop everything
-docker-compose down -v
+# 1. Stop everything and remove volumes
+docker compose down -v
 
 # 2. Remove any leftover containers/images
 docker rm -f ecommerce-postgres ecommerce-mongodb ecommerce-backend ecommerce-frontend 2>/dev/null
 docker system prune -af
 
 # 3. Rebuild from scratch
-docker-compose build --no-cache
+docker compose build --no-cache
 
 # 4. Start fresh
-docker-compose up
+docker compose up
 ```
 
 This downloads fresh images, rebuilds everything, and starts with empty databases. It's the nuclear option but it fixes almost everything.
+
+---
+
+## 🔴 Problem 14: Containers show "unhealthy" status
+
+**Symptoms:** `docker ps` shows `(unhealthy)` next to `ecommerce-backend` or `ecommerce-frontend`.
+
+**Diagnose:**
+```bash
+docker inspect ecommerce-backend --format='{{json .State.Health}}' | python -m json.tool
+docker inspect ecommerce-frontend --format='{{json .State.Health}}' | python -m json.tool
+```
+
+**Common causes & fixes:**
+
+| Service | Cause | Fix |
+|---------|-------|-----|
+| Backend unhealthy | `/api/health` endpoint not responding | Check `docker logs ecommerce-backend` — may show a Python import error or database connection failure |
+| Frontend unhealthy | Vite dev server not bound to IPv4 | Frontend health check uses `127.0.0.1` (IPv4). If you modified the `docker-compose.yml` health check, ensure it targets `http://127.0.0.1:3000` not `localhost` |
+| Frontend unhealthy | Vite crashed | `docker logs ecommerce-frontend` — check for JavaScript errors |
+
+> **Note:** Health checks were added to ensure dependent services don't start before their dependencies are ready. The backend waits for PostgreSQL and MongoDB to be healthy, and the frontend waits for the backend. If a container shows `(unhealthy)`, check its logs first.
 
 ---
 
@@ -379,4 +401,4 @@ This shows exactly what's running, what ports are taken, and how much disk space
 
 ---
 
-*INF2003 Group 11 — Team Hanzalians — June 2026*
+*INF2003 Group 11 — Team Hanzalians — July 2026*

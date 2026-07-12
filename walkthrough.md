@@ -1,4 +1,4 @@
-# 🛒 INF2003 Group 11 — Project Walkthrough
+ixed# 🛒 INF2003 Group 11 — Project Walkthrough
 
 **A friendly guide for anyone who wants to understand this project — no programming knowledge needed!**
 
@@ -179,7 +179,7 @@ The project comes with real-world-style data in CSV files (spreadsheet-like file
 | `customers.csv` | Customer profiles | 20,000 | **2,000** |
 | `products.csv` | Product catalog | 1,197 | 1,197 (all) |
 | `orders.csv` | Purchase orders | 33,580 | **3,000** |
-| `order_items.csv` | Items in each order | 75,000 | filtered to match orders |
+| `order_items.csv` | Items in each order | 59,163 | filtered to match orders |
 | `clickstream_events.csv` | Page views & cart actions | 760,958 | **40,000** |
 | `sessions.csv` | User browsing sessions | 120,000 | **10,000** |
 
@@ -187,7 +187,7 @@ The project comes with real-world-style data in CSV files (spreadsheet-like file
 > - [E-commerce Clickstream and Transaction Dataset](https://www.kaggle.com/datasets/waqi786/e-commerce-clickstream-and-transaction-dataset) by waqi786
 > - [Synthetic E-commerce Transactions + Clickstream 2020–2025](https://www.kaggle.com/datasets/wafaaelhusseini/e-commerce-transactions-clickstream) by Wafaa Elhusseini
 >
-> Combined and processed into 6 CSV files totaling ~275,000 rows of realistic e-commerce data.
+> Combined and processed into 6 CSV files totaling ~995,000 rows (~1 million) of realistic e-commerce data.
 
 > **What does this do?** The `data_loader.py` program reads each CSV file and inserts the data into the correct database — customer and product info goes to PostgreSQL, clickstream events go to MongoDB. By default it runs in **demo mode** which takes about **1.5 minutes**. You can watch its progress in the `docker compose up` terminal output.
 >
@@ -197,7 +197,7 @@ The project comes with real-world-style data in CSV files (spreadsheet-like file
 > docker compose build data-loader
 > docker compose up -d data-loader
 > ```
-> The full dataset takes ~20 minutes to load but provides 275,000+ rows for deeper analysis and benchmarking.
+> The full dataset takes ~20 minutes to load but provides ~1 million rows for deeper analysis and benchmarking.
 >
 > **How we made it fast:** The loader uses three key optimizations:
 > 1. **Batch MongoDB writes** — Instead of 761K individual database calls, events are grouped by session and pushed all at once using `$push: { $each: [...] }` — one DB operation per session instead of per event.
@@ -423,15 +423,14 @@ INF2003-Grp11/
 ├── docker-compose.yml          ← The "master switch" — one command starts everything
 ├── README.md                   ← Technical overview (you're reading the friendly version!)
 ├── walkthrough.md              ← THIS FILE — the comprehensive guide
-├── demoguide.md                ← Live demo script (every click & word for the video)
 │
 ├── data/                       ← Raw data files (spreadsheets)
 │   ├── customers.csv           ← 20,000 customer profiles
 │   ├── products.csv            ← 1,197 products across 7 categories
-│   ├── orders.csv              ← 53,000 purchase orders
-│   ├── order_items.csv         ← Which products are in each order
-│   ├── clickstream_events.csv  ← 120,000 page views and cart actions
-│   └── sessions.csv            ← 27,500 browsing sessions
+│   ├── orders.csv              ← 33,580 purchase orders
+│   ├── order_items.csv         ← 59,163 line items linking orders to products
+│   ├── clickstream_events.csv  ← 760,958 page views and cart actions
+│   └── sessions.csv            ← 120,000 browsing sessions
 │
 ├── backend/                    ← The "brain" — all the server-side logic
 │   ├── Dockerfile              ← Instructions for building the backend container
@@ -478,11 +477,10 @@ INF2003-Grp11/
 │           ├── Cart.jsx        ← Shopping cart interface
 │           └── AdminDashboard.jsx ← Charts & analytics dashboard
 │
-└── docs/                       ← Database diagrams & reports
+└── docs/                       ← Database diagrams
     ├── ER_Diagram.png          ← Combined dual-database ER diagram
     ├── ER_Diagram_PostgreSQL.png ← PostgreSQL 8-table ER diagram
-    ├── ER_Diagram_MongoDB.png  ← MongoDB 4-collection diagram
-    └── generate_er_diagrams.py ← Script to regenerate all ER diagrams
+    └── ER_Diagram_MongoDB.png  ← MongoDB 4-collection diagram
 ```
 
 ---
